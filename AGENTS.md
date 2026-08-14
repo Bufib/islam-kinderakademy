@@ -15,7 +15,7 @@ Die Islam-Kinderakademie ist eine web-first Lernplattform für islamischen Kinde
 
 Web ist die wichtigste Plattform. Die gemeinsame React-Native-Codebasis soll zusätzlich auf iOS und Android funktionieren.
 
-Das Projekt ist eine funktionierende Supabase-gestützte Lernplattform. Eine kleine, ausdrücklich gewünschte Beispieldatenbasis ist vorhanden; weitere fachliche Inhalte dürfen nicht ohne Auftrag ergänzt werden.
+Das Projekt ist eine funktionierende Supabase-gestützte Lernplattform. Als fachliche Grundstruktur ist das ausdrücklich gelieferte Akademiekonzept 2026/27 hinterlegt; weitergehende Detailinhalte dürfen nicht ohne Auftrag ergänzt werden.
 
 ## 2. Technischer Stack
 
@@ -45,6 +45,14 @@ npm run lint
 npx tsc --noEmit
 npx expo export --platform web
 ```
+
+GitHub Pages:
+
+- Repository: `Bufib/islam-kinderakademy`
+- Produktions-URL: `https://bufib.github.io/islam-kinderakademy/`
+- Expo-Unterpfad: `experiments.baseUrl = "/islam-kinderakademy"`
+- Workflow: `.github/workflows/deploy-pages.yml`
+- Der Workflow erwartet die Repository-Secrets `EXPO_PUBLIC_SUPABASE_URL` und `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 Supabase:
 
@@ -348,8 +356,9 @@ Aktueller relevanter Stand:
 - `20260814050100_academy_row_level_security.sql` – RLS-Policies und Grants
 - `20260814061000_academy_media_storage.sql` – privater Medien-Bucket und Storage-Policies
 - `20260814062000_ensure_account_profiles.sql` – Backfill und sichere Reparatur fehlender Auth-Profile
-- `20260814063000_example_academy_data.sql` – klar markierte, idempotente Beispieldaten ohne Auth-Nutzer
+- `20260814063000_example_academy_data.sql` – historischer Beispiel-Seed ohne Auth-Nutzer
 - `20260814064000_admin_account_management.sql` – Admin-Kontenübersicht und atomare Rollenwechsel
+- `20260814065000_academy_2026_27_curriculum.sql` – entfernt den Beispiel-Seed und legt das echte Curriculum 2026/27 mit vier Lernreisen und 40 Wochen pro Altersgruppe an
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -385,7 +394,7 @@ Bereits funktional umgesetzt:
 
 Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:
 
-- zusätzliche fachliche Kursinhalte jenseits der vorhandenen Beispieldaten
+- ausformulierte Unterrichtsinhalte für die vorhandenen Themen- und Schrittgerüste
 - Audio- und Bildabgaben aus Lernschritten
 - Zahlungs- oder Mitgliedschaftssystem
 - Push-Benachrichtigungen

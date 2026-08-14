@@ -77,7 +77,9 @@ function resolveRole(roles: unknown[]): AccountRole {
 
 function authRedirectUrl(path = '/login') {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}${path}`;
+    const productionBaseUrl =
+      process.env.NODE_ENV === 'production' ? process.env.EXPO_BASE_URL?.replace(/\/$/, '') ?? '' : '';
+    return `${window.location.origin}${productionBaseUrl}${path}`;
   }
 
   return Linking.createURL(path);

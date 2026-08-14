@@ -16,7 +16,7 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - separates Admin-Dashboard mit Konten- und Rollenverwaltung
 - Supabase-Datenschicht für CRUD, Lernfortschritt, Abgaben und Medien
 
-Eine kleine, klar als Beispiel markierte Datenbasis ist enthalten. Es werden dabei keine künstlichen Auth-Nutzer oder Passwörter angelegt.
+Das gelieferte Akademiekonzept 2026/27 ist als strukturierter Lehrplan enthalten. Es werden keine künstlichen Auth-Nutzer, Kinderprofile oder Passwörter angelegt.
 
 ## Supabase einrichten
 
@@ -50,7 +50,7 @@ Die Migrationen gleichen `profiles` und `user_roles` ab, reparieren fehlende Pro
 
 Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie veröffentlichte Inhalte; Lehrkräfte und Admins können Akademie-Inhalte verwalten. Dateien liegen im privaten Storage-Bucket `academy-media` und werden über kurzlebige signierte URLs geöffnet.
 
-Die Migration `20260814063000_example_academy_data.sql` ergänzt veröffentlichte Beispiel-Lernreisen, zwei Lektionen, Lernschritte, Gruppen, einen Termin, Abzeichen, eine Mitteilung und für bestehende reine Elternkonten ein `Beispielkind`.
+Die Migration `20260814065000_academy_2026_27_curriculum.sql` entfernt die früheren Beispieldaten und richtet das Akademiejahr 2026/27 ein. Enthalten sind zwei Altersgruppen, vier jährliche Lernreisen, ein 40-Wochen-Themengerüst je Altersgruppe, fünf vorbereitete Lernschritte pro Lektion, zwei Kursgruppen, sechs Abzeichen und eine Startmitteilung. Reale Zoom-Termine, Links und Lehrkraft-Zuordnungen werden anschließend im geschützten Team-Bereich gepflegt.
 
 3. Unter **Authentication → URL Configuration** die URLs freigeben:
 
@@ -70,6 +70,28 @@ npm run web
 ```
 
 Die öffentliche Seite liegt unter `/`. Nach der Anmeldung führt `/dashboard` abhängig von der Rolle in den Eltern-, Lehrkraft- oder Adminbereich. Neue Konten erhalten automatisch die Rolle `parent`; Admins können Konten anschließend geschützt unter `/konten` zu Lehrkräften oder weiteren Admins machen.
+
+## Auf GitHub Pages veröffentlichen
+
+Das Projekt ist für das Repository `Bufib/islam-kinderakademy` und damit für den Unterpfad `/islam-kinderakademy` konfiguriert. Der Workflow `.github/workflows/deploy-pages.yml` baut und veröffentlicht die Web-App automatisch bei jedem Push auf `main`. Während des Builds wird außerdem ein Pages-Fallback für direkt aufgerufene dynamische Lektions- und Mitteilungsrouten erzeugt.
+
+Im GitHub-Repository müssen unter **Settings → Secrets and variables → Actions** diese Repository-Secrets angelegt werden:
+
+```text
+EXPO_PUBLIC_SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+```
+
+Nur den Publishable Key verwenden, niemals den `service_role`-Key. Unter **Settings → Pages → Build and deployment** anschließend als Quelle **GitHub Actions** auswählen.
+
+In Supabase unter **Authentication → URL Configuration → Redirect URLs** ergänzen:
+
+```text
+https://bufib.github.io/islam-kinderakademy/login
+https://bufib.github.io/islam-kinderakademy/account
+```
+
+Nach einem Push auf `main` ist die App unter `https://bufib.github.io/islam-kinderakademy/` erreichbar. Den Fortschritt zeigt GitHub im Tab **Actions** an.
 
 ## Prüfungen
 
