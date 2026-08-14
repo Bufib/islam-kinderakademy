@@ -465,10 +465,14 @@ const styles = StyleSheet.create({
   },
   pageScroll: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
     backgroundColor: Palette.cream,
   },
   pageScrollContent: {
     flexGrow: 1,
+    width: '100%',
+    maxWidth: '100%',
     paddingHorizontal: Space.xxl,
     paddingTop: Space.xxl,
     paddingBottom: 64,
@@ -481,6 +485,8 @@ const styles = StyleSheet.create({
   },
   pageInner: {
     width: '100%',
+    minWidth: 0,
+    flexShrink: 1,
     maxWidth: Layout.contentMaxWidth,
     gap: Space.xl,
   },

@@ -136,9 +136,9 @@ function JourneyOrnament() {
 }
 
 const styles = StyleSheet.create({
-  heroGrid: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
+  heroGrid: { width: '100%', minWidth: 0, flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
-  fullWidth: { width: '100%', flexBasis: 'auto' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   heroCard: {
     minHeight: 330,
     flex: 1.72,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     padding: Space.xxl,
   },
-  heroCopy: { flex: 1, maxWidth: 610, zIndex: 1 },
+  heroCopy: { flex: 1, minWidth: 0, maxWidth: 610, zIndex: 1 },
   heroText: { gap: Space.md, marginTop: Space.xl, marginBottom: Space.xl },
   heroDescription: { maxWidth: 490 },
   heroActions: { flexDirection: 'row', gap: Space.sm, alignItems: 'center' },
@@ -195,4 +195,3 @@ const styles = StyleSheet.create({
   infoCardCopy: { flex: 1, justifyContent: 'center', gap: Space.sm, paddingVertical: Space.xl },
   statsGrid: { flexDirection: 'row', gap: Space.lg, flexWrap: 'wrap' },
 });
-

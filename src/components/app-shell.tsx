@@ -1,4 +1,4 @@
-import { Href, Link, usePathname, useRouter } from 'expo-router';
+import { Href, usePathname, useRouter } from 'expo-router';
 import { PropsWithChildren, useMemo, useState } from 'react';
 import {
   Modal,
@@ -208,31 +208,32 @@ function Sidebar({
 }
 
 function NavigationLink({ item, active }: { item: NavItem; active: boolean }) {
+  const router = useRouter();
+
   return (
-    <Link href={item.href as Href} asChild>
-      <Pressable
-        accessibilityRole="link"
-        style={({ pressed }) => [
-          styles.navItem,
-          active && styles.navItemActive,
-          pressed && styles.pressed,
-        ]}>
-        <View style={[styles.navIcon, active && styles.navIconActive]}>
-          <AppIcon
-            name={item.icon}
-            size={20}
-            color={active ? Palette.ink : Palette.mintStrong}
-          />
-        </View>
-        <AppText
-          variant="bodyStrong"
-          color={active ? Palette.white : '#D7E7DF'}
-          style={styles.navItemText}>
-          {item.label}
-        </AppText>
-        {active && <View style={styles.activeDot} />}
-      </Pressable>
-    </Link>
+    <Pressable
+      accessibilityRole="link"
+      onPress={() => router.push(item.href as Href)}
+      style={({ pressed }) => [
+        styles.navItem,
+        active && styles.navItemActive,
+        pressed && styles.pressed,
+      ]}>
+      <View style={[styles.navIcon, active && styles.navIconActive]}>
+        <AppIcon
+          name={item.icon}
+          size={20}
+          color={active ? Palette.ink : Palette.mintStrong}
+        />
+      </View>
+      <AppText
+        variant="bodyStrong"
+        color={active ? Palette.white : '#D7E7DF'}
+        style={styles.navItemText}>
+        {item.label}
+      </AppText>
+      {active && <View style={styles.activeDot} />}
+    </Pressable>
   );
 }
 
@@ -282,29 +283,33 @@ function MobileNavigation({
   pathname: string;
   bottomInset: number;
 }) {
+  const router = useRouter();
+
   return (
     <View style={[styles.mobileNav, { paddingBottom: Math.max(bottomInset, 8) }]}>
       {navItems.map((item) => {
         const active = isPathActive(pathname, item.href);
         return (
-          <Link key={item.href} href={item.href as Href} asChild>
-            <Pressable style={({ pressed }) => [styles.mobileNavItem, pressed && styles.pressed]}>
-              <View style={[styles.mobileNavIcon, active && styles.mobileNavIconActive]}>
-                <AppIcon
-                  name={item.icon}
-                  size={19}
-                  color={active ? Palette.white : Palette.muted}
-                />
-              </View>
-              <AppText
-                variant="small"
-                color={active ? Palette.forest : Palette.muted}
-                numberOfLines={1}
-                style={styles.mobileNavLabel}>
-                {item.shortLabel ?? item.label}
-              </AppText>
-            </Pressable>
-          </Link>
+          <Pressable
+            key={item.href}
+            accessibilityRole="link"
+            onPress={() => router.push(item.href as Href)}
+            style={({ pressed }) => [styles.mobileNavItem, pressed && styles.pressed]}>
+            <View style={[styles.mobileNavIcon, active && styles.mobileNavIconActive]}>
+              <AppIcon
+                name={item.icon}
+                size={19}
+                color={active ? Palette.white : Palette.muted}
+              />
+            </View>
+            <AppText
+              variant="small"
+              color={active ? Palette.forest : Palette.muted}
+              numberOfLines={1}
+              style={styles.mobileNavLabel}>
+              {item.shortLabel ?? item.label}
+            </AppText>
+          </Pressable>
         );
       })}
     </View>
@@ -410,10 +415,15 @@ function isPathActive(pathname: string, href: string) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
     backgroundColor: Palette.forestDark,
+    overflow: 'hidden',
   },
   app: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
     flexDirection: 'row',
     backgroundColor: Palette.cream,
   },
@@ -512,9 +522,12 @@ const styles = StyleSheet.create({
   main: {
     flex: 1,
     minWidth: 0,
+    maxWidth: '100%',
   },
   routeContent: {
     flex: 1,
+    minWidth: 0,
+    maxWidth: '100%',
   },
   topBar: {
     height: 68,
@@ -530,6 +543,8 @@ const styles = StyleSheet.create({
   topBarCompact: {
     height: 64,
     paddingHorizontal: Space.lg,
+    width: '100%',
+    maxWidth: '100%',
   },
   topActions: {
     flexDirection: 'row',
