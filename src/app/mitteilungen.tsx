@@ -1,8 +1,9 @@
+import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
-import { ChoiceChips, DataLoading, ErrorBanner, FormDialog, RowActions } from '@/components/ui/data-ui';
+import { ChoiceChips, DataLoading, ErrorBanner, FormDialog, IconAction, RowActions } from '@/components/ui/data-ui';
 import { ActionButton, AppText, Card, EmptyState, Field, PageScaffold, Pill } from '@/components/ui/primitives';
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
@@ -11,12 +12,13 @@ import { useAuth } from '@/context/auth-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
 import { MessageAudience, MessageRow } from '@/types/database';
 import { confirmAction } from '@/utils/feedback';
-import { apiErrorMessage, formatDateTime } from '@/utils/format';
+import { apiErrorMessage } from '@/utils/format';
 
 type MessageFilter = 'any' | MessageAudience;
 type MessageForm = { subject: string; body: string; audience: MessageAudience; recipientId: number | null; groupId: number | null; published: boolean };
 
 export default function MessagesScreen() {
+  const router = useRouter();
   const { activeRole } = useAcademy();
   const isTeam = activeRole === 'team';
   const { profile } = useAuth();
@@ -126,23 +128,22 @@ export default function MessagesScreen() {
         ) : (
           <View style={styles.messageList}>
             {visibleMessages.map((message) => {
-              const sender = data.profiles.find((entry) => entry.id === message.sender_profile_id);
-              const recipient = data.profiles.find((entry) => entry.id === message.recipient_profile_id);
-              const group = data.groups.find((entry) => entry.id === message.group_id);
               return (
                 <View key={message.id} style={styles.messageRow}>
                   <View style={styles.messageIcon}><AppIcon name="messages" size={20} color={Palette.forest} /></View>
                   <View style={styles.messageCopy}>
-                    <View style={styles.titleLine}>
-                      <AppText variant="bodyStrong">{message.subject}</AppText>
-                      <Pill tone={message.published_at ? 'mint' : 'sun'}>{message.published_at ? 'Veröffentlicht' : 'Entwurf'}</Pill>
-                    </View>
-                    <AppText color={Palette.inkSoft}>{message.body}</AppText>
-                    <AppText variant="small" color={Palette.muted}>
-                      {sender?.display_name ?? 'Akademie-Team'} · {message.published_at ? formatDateTime(message.published_at) : 'Noch nicht veröffentlicht'} · {message.audience === 'all' ? 'Alle Familien' : message.audience === 'group' ? group?.name ?? 'Gruppe' : recipient?.display_name ?? 'Persönlich'}
-                    </AppText>
+                    <AppText variant="bodyStrong">{message.subject}</AppText>
+                    <AppText color={Palette.inkSoft} numberOfLines={2}>{firstSentence(message.body)}</AppText>
                   </View>
-                  {isTeam && <RowActions onEdit={() => openMessage(message)} onDelete={() => void remove(message)} />}
+                  {isTeam ? (
+                    <RowActions
+                      extra={<IconAction icon="arrow" label="Mitteilung öffnen" onPress={() => router.push(`/mitteilung/${message.id}`)} />}
+                      onEdit={() => openMessage(message)}
+                      onDelete={() => void remove(message)}
+                    />
+                  ) : (
+                    <IconAction icon="arrow" label="Mitteilung öffnen" onPress={() => router.push(`/mitteilung/${message.id}`)} />
+                  )}
                 </View>
               );
             })}
@@ -163,6 +164,12 @@ export default function MessagesScreen() {
   );
 }
 
+function firstSentence(value: string) {
+  const compact = value.trim().replace(/\s+/g, ' ');
+  const match = compact.match(/^.*?[.!?](?:\s|$)/);
+  return match?.[0].trim() || compact;
+}
+
 const styles = StyleSheet.create({
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   inboxCard: { minHeight: 500 },
@@ -173,5 +180,4 @@ const styles = StyleSheet.create({
   messageRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.lg },
   messageIcon: { width: 42, height: 42, borderRadius: Radius.medium, backgroundColor: Palette.skySoft, alignItems: 'center', justifyContent: 'center' },
   messageCopy: { flex: 1, minWidth: 240, gap: Space.sm },
-  titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
 });

@@ -13,6 +13,7 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - geschützte Akademie-Routen mit Expo Router
 - Supabase-Sitzungsspeicherung für Web, iOS und Android
 - Accountbereich mit Profil-, Passwort- und Abmeldefunktionen
+- separates Admin-Dashboard mit Konten- und Rollenverwaltung
 - Supabase-Datenschicht für CRUD, Lernfortschritt, Abgaben und Medien
 
 Eine kleine, klar als Beispiel markierte Datenbasis ist enthalten. Es werden dabei keine künstlichen Auth-Nutzer oder Passwörter angelegt.
@@ -68,7 +69,7 @@ npm install
 npm run web
 ```
 
-Die öffentliche Seite liegt unter `/`. Nach der Anmeldung führt `/dashboard` in den geschützten Akademiebereich. Neue Konten erhalten automatisch die Rolle `parent`; `teacher` und `admin` werden ausschließlich in Supabase vergeben.
+Die öffentliche Seite liegt unter `/`. Nach der Anmeldung führt `/dashboard` abhängig von der Rolle in den Eltern-, Lehrkraft- oder Adminbereich. Neue Konten erhalten automatisch die Rolle `parent`; Admins können Konten anschließend geschützt unter `/konten` zu Lehrkräften oder weiteren Admins machen.
 
 ## Prüfungen
 

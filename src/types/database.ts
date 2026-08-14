@@ -184,6 +184,14 @@ export type MessageRow = {
   created_at: string;
 };
 
+export type AdminAccountSummary = {
+  profile_id: number;
+  display_name: string;
+  email: string | null;
+  account_role: DatabaseRole;
+  profile_created_at: string;
+};
+
 export type AcademyData = {
   profiles: ProfileRow[];
   userRoles: UserRoleRow[];

@@ -25,7 +25,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isAuthenticated, isInitializing, isProfileLoading } = useAuth();
+  const { isAuthenticated, isInitializing, isProfileLoading, profile } = useAuth();
   const { activeRole } = useAcademy();
 
   if (isInitializing || (isAuthenticated && isProfileLoading)) {
@@ -59,6 +59,7 @@ function RootNavigator() {
             <Stack.Screen name="dashboard" />
             <Stack.Screen name="kalender" />
             <Stack.Screen name="mitteilungen" />
+            <Stack.Screen name="mitteilung/[id]" />
             <Stack.Screen name="account" />
 
             <Stack.Protected guard={activeRole === 'child'}>
@@ -79,6 +80,10 @@ function RootNavigator() {
               <Stack.Screen name="medien" />
               <Stack.Screen name="abzeichen" />
               <Stack.Screen name="abgaben" />
+
+              <Stack.Protected guard={profile?.role === 'admin'}>
+                <Stack.Screen name="konten" />
+              </Stack.Protected>
             </Stack.Protected>
           </Stack.Protected>
         </Stack>

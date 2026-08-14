@@ -13,6 +13,7 @@ import { AppIcon, AppIconName } from '@/components/ui/app-icon';
 import { AppText, Pill } from '@/components/ui/primitives';
 import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
+import { useAuth } from '@/context/auth-context';
 import { UserRole } from '@/types/academy';
 
 type NavItem = {
@@ -21,6 +22,7 @@ type NavItem = {
   icon: AppIconName;
   href: string;
   mobile?: boolean;
+  adminOnly?: boolean;
 };
 
 const roleNavigation: Record<UserRole, NavItem[]> = {
@@ -38,6 +40,7 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
   team: [
     { label: 'Übersicht', shortLabel: 'Start', icon: 'dashboard', href: '/dashboard' },
+    { label: 'Konten & Rollen', shortLabel: 'Konten', icon: 'profile', href: '/konten', adminOnly: true },
     { label: 'Curriculum', shortLabel: 'Plan', icon: 'curriculum', href: '/curriculum' },
     { label: 'Lektionen', icon: 'lessons', href: '/lektionen' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
@@ -49,10 +52,14 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
 };
 
-const roleMeta: Record<
-  UserRole,
-  { label: string; description: string; icon: AppIconName; tone: 'mint' | 'sun' | 'sky' }
-> = {
+type RoleMeta = {
+  label: string;
+  description: string;
+  icon: AppIconName;
+  tone: 'mint' | 'sun' | 'sky' | 'coral';
+};
+
+const roleMeta: Record<UserRole, RoleMeta> = {
   child: {
     label: 'Kinderansicht',
     description: 'Lernen und Fortschritt',
@@ -73,6 +80,13 @@ const roleMeta: Record<
   },
 };
 
+const adminRoleMeta: RoleMeta = {
+  label: 'Administration',
+  description: 'Konten und Plattform',
+  icon: 'settings',
+  tone: 'coral',
+};
+
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Übersicht',
   '/lernreisen': 'Lernreisen',
@@ -87,6 +101,7 @@ const pageTitles: Record<string, string> = {
   '/medien': 'Medien',
   '/abzeichen': 'Abzeichen',
   '/abgaben': 'Abgaben',
+  '/konten': 'Konten & Rollen',
   '/account': 'Mein Account',
 };
 
@@ -97,9 +112,15 @@ export function AppShell({ children }: PropsWithChildren) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { activeRole, exitChildArea } = useAcademy();
+  const { profile } = useAuth();
   const router = useRouter();
   const desktop = width >= Layout.desktopBreakpoint;
-  const navItems = useMemo(() => roleNavigation[activeRole], [activeRole]);
+  const isAdmin = activeRole === 'team' && profile?.role === 'admin';
+  const currentRoleMeta = isAdmin ? adminRoleMeta : roleMeta[activeRole];
+  const navItems = useMemo(
+    () => roleNavigation[activeRole].filter((item) => !item.adminOnly || isAdmin),
+    [activeRole, isAdmin]
+  );
 
   if (publicPaths.has(pathname)) {
     return (
@@ -114,7 +135,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <View style={styles.app}>
         {desktop && (
           <Sidebar
-            activeRole={activeRole}
+            meta={currentRoleMeta}
             navItems={navItems}
             pathname={pathname}
             accountLabel={activeRole === 'child' ? 'Zum Elternbereich' : 'Mein Account'}
@@ -132,8 +153,8 @@ export function AppShell({ children }: PropsWithChildren) {
         <View style={styles.main}>
           <TopBar
             compact={!desktop}
-            pageTitle={pathname.startsWith('/lektion/') ? 'Lektion' : pageTitles[pathname] ?? 'Islam-Kinderakademie'}
-            activeRole={activeRole}
+            pageTitle={pathname.startsWith('/lektion/') ? 'Lektion' : pathname.startsWith('/mitteilung/') ? 'Mitteilung' : pageTitles[pathname] ?? 'Islam-Kinderakademie'}
+            meta={currentRoleMeta}
             onOpenAccount={() => {
               if (activeRole === 'child') {
                 exitChildArea();
@@ -161,13 +182,13 @@ export function AppShell({ children }: PropsWithChildren) {
 }
 
 function Sidebar({
-  activeRole,
+  meta,
   navItems,
   pathname,
   accountLabel,
   onOpenAccount,
 }: {
-  activeRole: UserRole;
+  meta: RoleMeta;
   navItems: NavItem[];
   pathname: string;
   accountLabel: string;
@@ -206,11 +227,11 @@ function Sidebar({
           onPress={onOpenAccount}
           style={({ pressed }) => [styles.sidebarRole, pressed && styles.pressed]}>
           <View style={styles.roleAvatar}>
-            <AppIcon name={roleMeta[activeRole].icon} size={20} color={Palette.ink} />
+            <AppIcon name={meta.icon} size={20} color={Palette.ink} />
           </View>
           <View style={styles.roleCopy}>
             <AppText variant="bodyStrong" color={Palette.white} numberOfLines={1}>
-              {roleMeta[activeRole].label}
+              {meta.label}
             </AppText>
             <AppText variant="small" color={Palette.mintStrong} numberOfLines={1}>
               {accountLabel}
@@ -256,13 +277,13 @@ function NavigationLink({ item, active }: { item: NavItem; active: boolean }) {
 function TopBar({
   compact,
   pageTitle,
-  activeRole,
+  meta,
   onOpenAccount,
   onOpenNotifications,
 }: {
   compact: boolean;
   pageTitle: string;
-  activeRole: UserRole;
+  meta: RoleMeta;
   onOpenAccount: () => void;
   onOpenNotifications: () => void;
 }) {
@@ -270,7 +291,7 @@ function TopBar({
     <View style={[styles.topBar, compact && styles.topBarCompact]}>
       {compact ? <BrandMark compact /> : <AppText variant="bodyStrong">{pageTitle}</AppText>}
       <View style={styles.topActions}>
-        {!compact && <Pill tone={roleMeta[activeRole].tone}>{roleMeta[activeRole].label}</Pill>}
+        {!compact && <Pill tone={meta.tone}>{meta.label}</Pill>}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Mitteilungen öffnen"
@@ -283,7 +304,7 @@ function TopBar({
           accessibilityLabel="Mein Account öffnen"
           onPress={onOpenAccount}
           style={({ pressed }) => [styles.topAvatar, pressed && styles.pressed]}>
-          <AppIcon name={roleMeta[activeRole].icon} size={20} color={Palette.ink} />
+          <AppIcon name={meta.icon} size={20} color={Palette.ink} />
         </Pressable>
       </View>
     </View>

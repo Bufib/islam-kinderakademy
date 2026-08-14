@@ -95,6 +95,7 @@ Geschützte Routen:
 - `/islam-pass`
 - `/kinder`
 - `/mitteilungen`
+- `/mitteilung/[id]` – vollständige, geschützte Mitteilungsansicht
 - `/curriculum`
 - `/lektionen`
 - `/lektion-neu`
@@ -103,6 +104,7 @@ Geschützte Routen:
 - `/medien`
 - `/abzeichen`
 - `/abgaben`
+- `/konten` – ausschließlich Admins
 
 Die geschützten Seiten sind mit verschachtelten `Stack.Protected`-Bereichen aus Expo Router abgesichert. Nicht angemeldete Nutzer dürfen keine Akademieseite erreichen. Zusätzlich sind Kinder-, Eltern- und Teamrouten nach der aktiven UI-Rolle getrennt.
 
@@ -332,6 +334,8 @@ Zentrale RLS-Helfer:
 - `is_academy_staff()`
 - `owns_child(child_id)`
 - `can_access_group(group_id)`
+- `list_admin_accounts()`
+- `set_profile_primary_role(profile_id, role)`
 
 RLS niemals zur Behebung eines Clientfehlers deaktivieren. Stattdessen Policy, Rolle und Abfrage gezielt prüfen.
 
@@ -345,6 +349,7 @@ Aktueller relevanter Stand:
 - `20260814061000_academy_media_storage.sql` – privater Medien-Bucket und Storage-Policies
 - `20260814062000_ensure_account_profiles.sql` – Backfill und sichere Reparatur fehlender Auth-Profile
 - `20260814063000_example_academy_data.sql` – klar markierte, idempotente Beispieldaten ohne Auth-Nutzer
+- `20260814064000_admin_account_management.sql` – Admin-Kontenübersicht und atomare Rollenwechsel
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -370,10 +375,13 @@ Bereits funktional umgesetzt:
 - Textantworten und Challenge-Bestätigungen
 - Zoom-Links und Replay-Links aus Supabase
 - Mitteilungen an alle, einzelne Profile oder Gruppen
+- kompakte Mitteilungsübersicht mit Titel/erstem Satz und separater Detailansicht
 - Abzeichenverwaltung und persönliche Verleihung
 - Abgabenübersicht für das Akademieteam
 - private Medien-Uploads, signierte Download-Links und Löschung in Supabase Storage
 - datengetriebene Eltern-, Kinder- und Team-Dashboards
+- separates Admin-Dashboard mit Systemkennzahlen und Admin-Schnellzugriffen
+- geschützte Kontenübersicht mit E-Mail-Adressen und Rollenverwaltung
 
 Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:
 

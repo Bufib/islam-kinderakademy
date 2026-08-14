@@ -4,6 +4,7 @@ import {
   AcademyTableName,
   AcademyTableRowMap,
   AcademyUpdate,
+  AdminAccountSummary,
   ChildLessonProgressRow,
   LessonEditorInput,
   MediaAssetRow,
@@ -36,6 +37,23 @@ export async function ensureCurrentProfileId() {
     throw new AcademyApiError('Das Supabase-Profil konnte nicht bereitgestellt werden.');
   }
   return profileId;
+}
+
+export async function listAdminAccounts() {
+  const { data, error } = await client().rpc('list_admin_accounts');
+  fail(error);
+  return (data ?? []) as AdminAccountSummary[];
+}
+
+export async function setProfilePrimaryRole(
+  profileId: number,
+  role: 'parent' | 'teacher' | 'admin'
+) {
+  const { error } = await client().rpc('set_profile_primary_role', {
+    target_profile_id: profileId,
+    next_role: role,
+  });
+  fail(error);
 }
 
 async function selectTable<T>(table: AcademyTableName, order: string, ascending = true) {
