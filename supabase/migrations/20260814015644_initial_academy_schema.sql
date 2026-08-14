@@ -1,0 +1,2 @@
+-- Diese Migration wurde im verknüpften Projekt bereits leer ausgeführt.
+-- Das bestehende Account-Schema wird in der nachfolgenden Migration abgeglichen.

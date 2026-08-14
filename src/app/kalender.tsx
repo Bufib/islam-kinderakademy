@@ -1,31 +1,144 @@
+import * as Linking from 'expo-linking';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
-import { AppText, Card, EmptyState, PageScaffold, Pill, SectionHeader } from '@/components/ui/primitives';
+import { ChoiceChips, DataLoading, ErrorBanner, FormDialog, RowActions } from '@/components/ui/data-ui';
+import {
+  ActionButton,
+  AppText,
+  Card,
+  EmptyState,
+  Field,
+  PageScaffold,
+  Pill,
+  SectionHeader,
+} from '@/components/ui/primitives';
 import { Layout, Palette, Radius, Space } from '@/constants/design';
+import { useAcademy } from '@/context/academy-context';
+import { useAcademyData } from '@/context/academy-data-context';
+import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
+import { LiveSessionRow, LiveSessionStatus } from '@/types/database';
+import { confirmAction } from '@/utils/feedback';
+import { apiErrorMessage, formatDateTime, parseDateTimeInput, toDateTimeInput } from '@/utils/format';
 
 const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+type SessionForm = {
+  lessonId: number | null;
+  groupId: number | null;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  meetingUrl: string;
+  replayUrl: string;
+  status: LiveSessionStatus;
+};
+
 export default function CalendarScreen() {
+  const { activeRole } = useAcademy();
+  const isTeam = activeRole === 'team';
+  const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<LiveSessionRow | null>(null);
+  const [form, setForm] = useState<SessionForm>({ lessonId: null, groupId: null, title: '', startsAt: '', endsAt: '', meetingUrl: '', replayUrl: '', status: 'scheduled' });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
   const cells = useMemo(() => createMonthCells(visibleMonth), [visibleMonth]);
   const monthTitle = visibleMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const visibleSessions = useMemo(
+    () =>
+      data.liveSessions.filter((session) => {
+        const date = new Date(session.starts_at);
+        return date.getFullYear() === visibleMonth.getFullYear() && date.getMonth() === visibleMonth.getMonth();
+      }),
+    [data.liveSessions, visibleMonth]
+  );
 
   function changeMonth(offset: number) {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  }
+
+  function openSession(session?: LiveSessionRow) {
+    setEditing(session ?? null);
+    setForm(
+      session
+        ? {
+            lessonId: session.lesson_id,
+            groupId: session.group_id,
+            title: session.title ?? '',
+            startsAt: toDateTimeInput(session.starts_at),
+            endsAt: toDateTimeInput(session.ends_at),
+            meetingUrl: session.meeting_url ?? '',
+            replayUrl: session.replay_url ?? '',
+            status: session.status,
+          }
+        : {
+            lessonId: data.lessons[0]?.id ?? null,
+            groupId: null,
+            title: '',
+            startsAt: '',
+            endsAt: '',
+            meetingUrl: '',
+            replayUrl: '',
+            status: 'scheduled',
+          }
+    );
+    setFormError(null);
+    setDialogOpen(true);
+  }
+
+  async function save() {
+    const startsAt = parseDateTimeInput(form.startsAt);
+    const endsAt = parseDateTimeInput(form.endsAt);
+    if (!form.lessonId || !startsAt || !endsAt || endsAt <= startsAt) {
+      setFormError('Lektion sowie eine gültige Start- und Endzeit sind erforderlich.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const values = {
+        lesson_id: form.lessonId,
+        group_id: form.groupId,
+        title: form.title.trim() || null,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        meeting_url: form.meetingUrl.trim() || null,
+        replay_url: form.replayUrl.trim() || null,
+        status: form.status,
+      };
+      await execute(() =>
+        editing
+          ? updateRecord('live_sessions', editing.id, values)
+          : createRecord('live_sessions', values)
+      );
+      setDialogOpen(false);
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(session: LiveSessionRow) {
+    const confirmed = await confirmAction('Termin löschen?', 'Der Live-Termin wird dauerhaft aus dem Kalender entfernt.');
+    if (confirmed) await execute(() => deleteRecord('live_sessions', session.id));
   }
 
   return (
     <PageScaffold
       eyebrow="Planung"
       title="Kalender"
-      description="Live-Unterricht, Abgaben und besondere Termine werden hier gebündelt.">
+      description="Live-Unterricht, Replays und besondere Termine werden hier gebündelt."
+      action={isTeam ? <ActionButton label="Termin anlegen" icon="add" disabled={data.lessons.length === 0} onPress={() => openSession()} /> : undefined}>
+      {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       <View style={[styles.layout, compact && styles.column]}>
         <Card style={styles.calendarCard}>
           <View style={styles.calendarHeader}>
@@ -37,26 +150,19 @@ export default function CalendarScreen() {
               <AppIcon name="arrow" size={19} color={Palette.ink} />
             </Pressable>
           </View>
-
           <View style={styles.weekHeader}>
-            {weekDays.map((day) => (
-              <View key={day} style={styles.dayCell}>
-                <AppText variant="label" color={Palette.muted}>{day}</AppText>
-              </View>
-            ))}
+            {weekDays.map((day) => <View key={day} style={styles.dayCell}><AppText variant="label" color={Palette.muted}>{day}</AppText></View>)}
           </View>
           <View style={styles.monthGrid}>
-            {cells.map((cell, index) => (
-              <View key={`${cell.day}-${index}`} style={[styles.dateCell, cell.outside && styles.dateCellOutside]}>
-                <AppText
-                  variant="small"
-                  color={cell.outside ? Palette.disabled : Palette.ink}
-                  style={cell.today && styles.todayText}>
-                  {cell.day}
-                </AppText>
-                {cell.today && <View style={styles.todayDot} />}
-              </View>
-            ))}
+            {cells.map((cell) => {
+              const eventCount = data.liveSessions.filter((session) => localDateKey(new Date(session.starts_at)) === cell.key).length;
+              return (
+                <View key={cell.key} style={[styles.dateCell, cell.outside && styles.dateCellOutside]}>
+                  <AppText variant="small" color={cell.outside ? Palette.disabled : Palette.ink} style={cell.today && styles.todayText}>{cell.day}</AppText>
+                  {eventCount > 0 && <View style={styles.eventBadge}><AppText variant="small" color={Palette.white}>{eventCount}</AppText></View>}
+                </View>
+              );
+            })}
           </View>
         </Card>
 
@@ -64,17 +170,56 @@ export default function CalendarScreen() {
           <Card tone="mint" style={styles.agendaSummary}>
             <View style={styles.agendaSummaryTop}>
               <View style={styles.agendaIcon}><AppIcon name="calendar" size={24} color={Palette.forest} /></View>
-              <Pill tone="mint">0 Termine</Pill>
+              <Pill tone="mint">{visibleSessions.length} Termine</Pill>
             </View>
             <AppText variant="heading">Monatsübersicht</AppText>
-            <AppText color={Palette.inkSoft}>Aktuell sind keine Termine eingetragen.</AppText>
+            <AppText color={Palette.inkSoft}>{visibleSessions.length ? 'Alle zugänglichen Live-Termine dieses Monats.' : 'Aktuell sind keine Termine eingetragen.'}</AppText>
           </Card>
           <Card style={styles.agendaList}>
             <SectionHeader title="Anstehend" />
-            <EmptyState compact icon="clock" title="Keine Termine" description="Neue Termine erscheinen hier chronologisch." />
+            {isLoading && data.liveSessions.length === 0 ? (
+              <DataLoading />
+            ) : visibleSessions.length === 0 ? (
+              <EmptyState compact icon="clock" title="Keine Termine" description="Neue Termine erscheinen hier chronologisch." />
+            ) : (
+              <View style={styles.sessionList}>
+                {visibleSessions.map((session) => {
+                  const lesson = data.lessons.find((entry) => entry.id === session.lesson_id);
+                  const group = data.groups.find((entry) => entry.id === session.group_id);
+                  return (
+                    <View key={session.id} style={styles.sessionRow}>
+                      <View style={styles.sessionDate}><AppIcon name="video" size={19} color={Palette.forest} /></View>
+                      <View style={styles.sessionCopy}>
+                        <AppText variant="bodyStrong">{session.title || lesson?.title || 'Live-Unterricht'}</AppText>
+                        <AppText variant="small" color={Palette.inkSoft}>{formatDateTime(session.starts_at)}</AppText>
+                        <AppText variant="small" color={Palette.muted}>{group?.name ?? 'Für alle Gruppen'}</AppText>
+                        {session.meeting_url && session.status !== 'cancelled' && (
+                          <ActionButton label="Zoom öffnen" icon="external" compact variant="secondary" onPress={() => void Linking.openURL(session.meeting_url!)} />
+                        )}
+                      </View>
+                      {isTeam && <RowActions onEdit={() => openSession(session)} onDelete={() => void remove(session)} />}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </Card>
         </View>
       </View>
+
+      <FormDialog visible={dialogOpen} title={editing ? 'Termin bearbeiten' : 'Termin anlegen'} saving={saving} onClose={() => setDialogOpen(false)} onSave={() => void save()}>
+        {formError && <ErrorBanner message={formError} />}
+        <ChoiceChips label="Lektion" value={form.lessonId} onChange={(lessonId) => setForm((current) => ({ ...current, lessonId }))} options={data.lessons.map((lesson) => ({ value: lesson.id, label: lesson.title }))} />
+        <ChoiceChips label="Gruppe" value={form.groupId} allowEmpty onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={data.groups.map((group) => ({ value: group.id, label: group.name }))} />
+        <Field label="Bezeichnung" placeholder="Live-Unterricht" value={form.title} onChangeText={(title) => setForm((current) => ({ ...current, title }))} />
+        <View style={styles.formRow}>
+          <View style={styles.formHalf}><Field label="Beginn" placeholder="2026-09-10T17:00" value={form.startsAt} onChangeText={(startsAt) => setForm((current) => ({ ...current, startsAt }))} /></View>
+          <View style={styles.formHalf}><Field label="Ende" placeholder="2026-09-10T18:00" value={form.endsAt} onChangeText={(endsAt) => setForm((current) => ({ ...current, endsAt }))} /></View>
+        </View>
+        <Field label="Zoom-Link" placeholder="https://zoom.us/…" value={form.meetingUrl} onChangeText={(meetingUrl) => setForm((current) => ({ ...current, meetingUrl }))} autoCapitalize="none" />
+        <Field label="Replay-Link" placeholder="Optional" value={form.replayUrl} onChangeText={(replayUrl) => setForm((current) => ({ ...current, replayUrl }))} autoCapitalize="none" />
+        <ChoiceChips label="Status" value={form.status} onChange={(status) => status && setForm((current) => ({ ...current, status }))} options={[{ value: 'scheduled', label: 'Geplant' }, { value: 'live', label: 'Live' }, { value: 'completed', label: 'Beendet' }, { value: 'cancelled', label: 'Abgesagt' }]} />
+      </FormDialog>
     </PageScaffold>
   );
 }
@@ -83,59 +228,44 @@ function createMonthCells(month: Date) {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const firstWeekday = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const daysInPreviousMonth = new Date(year, monthIndex, 0).getDate();
-  const today = new Date();
-
+  const start = new Date(year, monthIndex, 1 - firstWeekday);
+  const todayKey = localDateKey(new Date());
   return Array.from({ length: 42 }, (_, index) => {
-    const relativeDay = index - firstWeekday + 1;
-    if (relativeDay < 1) return { day: daysInPreviousMonth + relativeDay, outside: true, today: false };
-    if (relativeDay > daysInMonth) return { day: relativeDay - daysInMonth, outside: true, today: false };
-    return {
-      day: relativeDay,
-      outside: false,
-      today: today.getFullYear() === year && today.getMonth() === monthIndex && today.getDate() === relativeDay,
-    };
+    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+    return { day: date.getDate(), key: localDateKey(date), outside: date.getMonth() !== monthIndex, today: localDateKey(date) === todayKey };
   });
 }
 
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
+
+function capitalize(value: string) { return value.charAt(0).toUpperCase() + value.slice(1); }
 
 const styles = StyleSheet.create({
   layout: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
   calendarCard: { flex: 1.45, minWidth: 0 },
-  calendarHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Space.xl,
-  },
-  arrowButton: {
-    width: 40, height: 40, borderRadius: Radius.small, backgroundColor: '#F0F3F1',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Space.xl },
+  arrowButton: { width: 40, height: 40, borderRadius: Radius.small, backgroundColor: '#F0F3F1', alignItems: 'center', justifyContent: 'center' },
   arrowLeft: { transform: [{ rotate: '180deg' }] },
   monthTitle: { textAlign: 'center', flex: 1 },
   weekHeader: { flexDirection: 'row', paddingBottom: Space.sm },
   dayCell: { flex: 1, alignItems: 'center' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderLeftWidth: 1, borderColor: Palette.line },
-  dateCell: {
-    width: '14.2857%', aspectRatio: 1.05, minHeight: 42, borderRightWidth: 1, borderBottomWidth: 1,
-    borderColor: Palette.line, padding: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.paper,
-  },
+  dateCell: { width: '14.2857%', aspectRatio: 1.05, minHeight: 42, borderRightWidth: 1, borderBottomWidth: 1, borderColor: Palette.line, padding: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.paper },
   dateCellOutside: { backgroundColor: '#F7F8F5' },
-  todayText: {
-    color: Palette.white, backgroundColor: Palette.forest, width: 28, height: 28,
-    borderRadius: 14, textAlign: 'center', lineHeight: 28, overflow: 'hidden',
-  },
-  todayDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: Palette.sun, marginTop: 3 },
+  todayText: { color: Palette.white, backgroundColor: Palette.forest, width: 28, height: 28, borderRadius: 14, textAlign: 'center', lineHeight: 28, overflow: 'hidden' },
+  eventBadge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: Palette.coral, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
   agendaColumn: { flex: 0.75, minWidth: 270, gap: Space.lg },
   agendaSummary: { gap: Space.md },
   agendaSummaryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  agendaIcon: {
-    width: 48, height: 48, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.65)',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  agendaIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
   agendaList: { flex: 1 },
+  sessionList: { gap: Space.sm, marginTop: Space.lg },
+  sessionRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.md },
+  sessionDate: { width: 38, height: 38, borderRadius: 13, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
+  sessionCopy: { flex: 1, gap: 4 },
+  formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },
+  formHalf: { flex: 1, minWidth: 210 },
 });
-

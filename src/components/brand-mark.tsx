@@ -16,7 +16,7 @@ export function BrandMark({ compact = false, inverse = false }: BrandMarkProps) 
       </View>
       {!compact && (
         <View>
-          <Text style={[styles.eyebrow, inverse && styles.textInverse]}>ISLAM</Text>
+          <Text style={[styles.name, inverse && styles.textInverse]}>Islam</Text>
           <Text style={[styles.name, inverse && styles.textInverse]}>Kinderakademie</Text>
         </View>
       )}

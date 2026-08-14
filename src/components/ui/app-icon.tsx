@@ -26,7 +26,12 @@ export type AppIconName =
   | 'close'
   | 'clock'
   | 'trophy'
-  | 'bell';
+  | 'bell'
+  | 'edit'
+  | 'delete'
+  | 'download'
+  | 'external'
+  | 'refresh';
 
 type PlatformIcon = { ios: SFSymbol; android: AndroidSymbol; web: AndroidSymbol };
 
@@ -56,6 +61,11 @@ const iconNames: Record<AppIconName, PlatformIcon> = {
   clock: { ios: 'clock.fill', android: 'schedule', web: 'schedule' },
   trophy: { ios: 'trophy.fill', android: 'trophy', web: 'trophy' },
   bell: { ios: 'bell.fill', android: 'notifications', web: 'notifications' },
+  edit: { ios: 'pencil', android: 'edit', web: 'edit' },
+  delete: { ios: 'trash.fill', android: 'delete', web: 'delete' },
+  download: { ios: 'arrow.down.circle.fill', android: 'download', web: 'download' },
+  external: { ios: 'arrow.up.right.square', android: 'open_in_new', web: 'open_in_new' },
+  refresh: { ios: 'arrow.clockwise', android: 'refresh', web: 'refresh' },
 };
 
 type AppIconProps = {
@@ -76,4 +86,3 @@ export function AppIcon({ name, size = 22, color = '#173D3A', style }: AppIconPr
     />
   );
 }
-

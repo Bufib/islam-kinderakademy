@@ -1,7 +1,6 @@
 import { Href, usePathname, useRouter } from 'expo-router';
-import { PropsWithChildren, useMemo, useState } from 'react';
+import { PropsWithChildren, useMemo } from 'react';
 import {
-  Modal,
   Pressable,
   StyleSheet,
   useWindowDimensions,
@@ -21,27 +20,31 @@ type NavItem = {
   shortLabel?: string;
   icon: AppIconName;
   href: string;
+  mobile?: boolean;
 };
 
 const roleNavigation: Record<UserRole, NavItem[]> = {
   child: [
-    { label: 'Übersicht', shortLabel: 'Start', icon: 'home', href: '/' },
+    { label: 'Übersicht', shortLabel: 'Start', icon: 'home', href: '/dashboard' },
     { label: 'Lernreisen', icon: 'journeys', href: '/lernreisen' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
     { label: 'Islam-Pass', shortLabel: 'Pass', icon: 'pass', href: '/islam-pass' },
   ],
   parent: [
-    { label: 'Übersicht', shortLabel: 'Start', icon: 'home', href: '/' },
+    { label: 'Übersicht', shortLabel: 'Start', icon: 'home', href: '/dashboard' },
     { label: 'Meine Kinder', shortLabel: 'Kinder', icon: 'children', href: '/kinder' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
     { label: 'Mitteilungen', shortLabel: 'Postfach', icon: 'messages', href: '/mitteilungen' },
   ],
   team: [
-    { label: 'Übersicht', shortLabel: 'Start', icon: 'dashboard', href: '/' },
+    { label: 'Übersicht', shortLabel: 'Start', icon: 'dashboard', href: '/dashboard' },
     { label: 'Curriculum', shortLabel: 'Plan', icon: 'curriculum', href: '/curriculum' },
     { label: 'Lektionen', icon: 'lessons', href: '/lektionen' },
-    { label: 'Gruppen', icon: 'groups', href: '/gruppen' },
-    { label: 'Medien', icon: 'media', href: '/medien' },
+    { label: 'Kalender', icon: 'calendar', href: '/kalender' },
+    { label: 'Mitteilungen', shortLabel: 'Postfach', icon: 'messages', href: '/mitteilungen' },
+    { label: 'Gruppen', icon: 'groups', href: '/gruppen', mobile: false },
+    { label: 'Medien', icon: 'media', href: '/medien', mobile: false },
+    { label: 'Abzeichen', icon: 'trophy', href: '/abzeichen', mobile: false },
   ],
 };
 
@@ -70,7 +73,7 @@ const roleMeta: Record<
 };
 
 const pageTitles: Record<string, string> = {
-  '/': 'Übersicht',
+  '/dashboard': 'Übersicht',
   '/lernreisen': 'Lernreisen',
   '/kalender': 'Kalender',
   '/islam-pass': 'Mein Islam-Pass',
@@ -81,23 +84,27 @@ const pageTitles: Record<string, string> = {
   '/lektion-neu': 'Neue Lektion',
   '/gruppen': 'Gruppen',
   '/medien': 'Medien',
+  '/abzeichen': 'Abzeichen',
+  '/account': 'Mein Account',
 };
+
+const publicPaths = new Set(['/', '/login', '/register']);
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { activeRole, setActiveRole } = useAcademy();
+  const { activeRole, exitChildArea } = useAcademy();
   const router = useRouter();
-  const [rolePickerOpen, setRolePickerOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const desktop = width >= Layout.desktopBreakpoint;
   const navItems = useMemo(() => roleNavigation[activeRole], [activeRole]);
 
-  function selectRole(role: UserRole) {
-    setActiveRole(role);
-    setRolePickerOpen(false);
-    router.replace('/' as Href);
+  if (publicPaths.has(pathname)) {
+    return (
+      <SafeAreaView style={styles.publicSafeArea} edges={['top', 'left', 'right']}>
+        {children}
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -108,7 +115,15 @@ export function AppShell({ children }: PropsWithChildren) {
             activeRole={activeRole}
             navItems={navItems}
             pathname={pathname}
-            onOpenRolePicker={() => setRolePickerOpen(true)}
+            accountLabel={activeRole === 'child' ? 'Zum Elternbereich' : 'Mein Account'}
+            onOpenAccount={() => {
+              if (activeRole === 'child') {
+                exitChildArea();
+                router.replace('/dashboard' as Href);
+              } else {
+                router.push('/account' as Href);
+              }
+            }}
           />
         )}
 
@@ -117,8 +132,8 @@ export function AppShell({ children }: PropsWithChildren) {
             compact={!desktop}
             pageTitle={pageTitles[pathname] ?? 'Islam-Kinderakademie'}
             activeRole={activeRole}
-            onOpenRolePicker={() => setRolePickerOpen(true)}
-            onOpenNotifications={() => setNotificationsOpen(true)}
+            onOpenAccount={() => router.push('/account' as Href)}
+            onOpenNotifications={() => router.push('/mitteilungen' as Href)}
           />
           <View style={styles.routeContent}>{children}</View>
         </View>
@@ -132,16 +147,6 @@ export function AppShell({ children }: PropsWithChildren) {
         )}
       </View>
 
-      <RolePicker
-        visible={rolePickerOpen}
-        activeRole={activeRole}
-        onClose={() => setRolePickerOpen(false)}
-        onSelect={selectRole}
-      />
-      <NotificationsPanel
-        visible={notificationsOpen}
-        onClose={() => setNotificationsOpen(false)}
-      />
     </SafeAreaView>
   );
 }
@@ -150,12 +155,14 @@ function Sidebar({
   activeRole,
   navItems,
   pathname,
-  onOpenRolePicker,
+  accountLabel,
+  onOpenAccount,
 }: {
   activeRole: UserRole;
   navItems: NavItem[];
   pathname: string;
-  onOpenRolePicker: () => void;
+  accountLabel: string;
+  onOpenAccount: () => void;
 }) {
   return (
     <View style={styles.sidebar}>
@@ -180,14 +187,14 @@ function Sidebar({
               Geschützter Bereich
             </AppText>
             <AppText variant="small" color={Palette.mintStrong}>
-              App-Grundgerüst
+              Mit Supabase verbunden
             </AppText>
           </View>
         </View>
 
         <Pressable
           accessibilityRole="button"
-          onPress={onOpenRolePicker}
+          onPress={onOpenAccount}
           style={({ pressed }) => [styles.sidebarRole, pressed && styles.pressed]}>
           <View style={styles.roleAvatar}>
             <AppIcon name={roleMeta[activeRole].icon} size={20} color={Palette.ink} />
@@ -197,7 +204,7 @@ function Sidebar({
               {roleMeta[activeRole].label}
             </AppText>
             <AppText variant="small" color={Palette.mintStrong} numberOfLines={1}>
-              Ansicht wechseln
+              {accountLabel}
             </AppText>
           </View>
           <AppIcon name="more" size={20} color={Palette.mintStrong} />
@@ -241,13 +248,13 @@ function TopBar({
   compact,
   pageTitle,
   activeRole,
-  onOpenRolePicker,
+  onOpenAccount,
   onOpenNotifications,
 }: {
   compact: boolean;
   pageTitle: string;
   activeRole: UserRole;
-  onOpenRolePicker: () => void;
+  onOpenAccount: () => void;
   onOpenNotifications: () => void;
 }) {
   return (
@@ -264,8 +271,8 @@ function TopBar({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Ansicht wechseln"
-          onPress={onOpenRolePicker}
+          accessibilityLabel="Mein Account öffnen"
+          onPress={onOpenAccount}
           style={({ pressed }) => [styles.topAvatar, pressed && styles.pressed]}>
           <AppIcon name={roleMeta[activeRole].icon} size={20} color={Palette.ink} />
         </Pressable>
@@ -287,7 +294,7 @@ function MobileNavigation({
 
   return (
     <View style={[styles.mobileNav, { paddingBottom: Math.max(bottomInset, 8) }]}>
-      {navItems.map((item) => {
+      {navItems.filter((item) => item.mobile !== false).map((item) => {
         const active = isPathActive(pathname, item.href);
         return (
           <Pressable
@@ -316,103 +323,16 @@ function MobileNavigation({
   );
 }
 
-function RolePicker({
-  visible,
-  activeRole,
-  onClose,
-  onSelect,
-}: {
-  visible: boolean;
-  activeRole: UserRole;
-  onClose: () => void;
-  onSelect: (role: UserRole) => void;
-}) {
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => undefined}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderCopy}>
-              <AppText variant="heading">Ansicht wechseln</AppText>
-              <AppText color={Palette.inkSoft}>Vorschau der verschiedenen App-Bereiche.</AppText>
-            </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <AppIcon name="close" size={20} color={Palette.ink} />
-            </Pressable>
-          </View>
-
-          <View style={styles.roleOptions}>
-            {(Object.keys(roleMeta) as UserRole[]).map((role) => {
-              const selected = role === activeRole;
-              const meta = roleMeta[role];
-              return (
-                <Pressable
-                  key={role}
-                  onPress={() => onSelect(role)}
-                  style={({ pressed }) => [
-                    styles.roleOption,
-                    selected && styles.roleOptionSelected,
-                    pressed && styles.pressed,
-                  ]}>
-                  <View style={[styles.roleOptionIcon, selected && styles.roleOptionIconSelected]}>
-                    <AppIcon
-                      name={meta.icon}
-                      size={22}
-                      color={selected ? Palette.white : Palette.forest}
-                    />
-                  </View>
-                  <View style={styles.roleOptionCopy}>
-                    <AppText variant="bodyStrong">{meta.label}</AppText>
-                    <AppText variant="small" color={Palette.inkSoft}>
-                      {meta.description}
-                    </AppText>
-                  </View>
-                  {selected && <AppIcon name="check" size={20} color={Palette.forest} />}
-                </Pressable>
-              );
-            })}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-function NotificationsPanel({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <Pressable style={styles.notificationCard} onPress={() => undefined}>
-          <View style={styles.modalHeader}>
-            <View style={styles.modalHeaderCopy}>
-              <AppText variant="heading">Mitteilungen</AppText>
-              <AppText color={Palette.inkSoft}>Hier erscheinen später neue Hinweise.</AppText>
-            </View>
-            <Pressable onPress={onClose} style={styles.closeButton}>
-              <AppIcon name="close" size={20} color={Palette.ink} />
-            </Pressable>
-          </View>
-          <View style={styles.notificationEmpty}>
-            <View style={styles.notificationEmptyIcon}>
-              <AppIcon name="bell" size={26} color={Palette.forest} />
-            </View>
-            <AppText variant="bodyStrong">Alles ruhig</AppText>
-            <AppText color={Palette.inkSoft} style={styles.centerText}>
-              Aktuell sind keine Mitteilungen vorhanden.
-            </AppText>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
 function isPathActive(pathname: string, href: string) {
-  if (href === '/') return pathname === '/';
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 const styles = StyleSheet.create({
+  publicSafeArea: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: Palette.cream,
+  },
   safeArea: {
     flex: 1,
     width: '100%',
@@ -549,6 +469,7 @@ const styles = StyleSheet.create({
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: "center",
     gap: Space.sm,
   },
   iconButton: {

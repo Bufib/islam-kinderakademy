@@ -455,7 +455,6 @@ const styles = StyleSheet.create({
     opacity: 0.42,
   },
   pill: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.pill,
