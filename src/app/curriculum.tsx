@@ -297,7 +297,7 @@ export default function CurriculumScreen() {
         <View style={styles.hintIcon}><AppIcon name="lessons" size={23} color="#846211" /></View>
         <View style={styles.hintCopy}>
           <AppText variant="bodyStrong">Lektionseditor</AppText>
-          <AppText color={Palette.inkSoft}>Erstellt Grunddaten, fünf Lernschritte und optional einen Live-Termin.</AppText>
+          <AppText color={Palette.inkSoft}>Erstellt Einstiegstext, geplanten Live-Zoom-Termin und ein separates Multiple-Choice-Quiz.</AppText>
         </View>
         <Pressable onPress={() => router.push('/lektion-neu')} style={({ pressed }) => pressed && styles.pressed}>
           <AppText variant="bodyStrong" color={Palette.forest}>Editor öffnen</AppText>

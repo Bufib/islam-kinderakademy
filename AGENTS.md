@@ -108,6 +108,8 @@ Geschützte Routen:
 - `/lektionen`
 - `/lektion-neu`
 - `/lektion/[id]`
+- `/quiz/[lessonId]` – eigenständiges Multiple-Choice-Quiz für das ausgewählte Kind
+- `/quiz-bearbeiten` – Quizverwaltung für Lehrkräfte und Admins
 - `/gruppen`
 - `/medien`
 - `/abzeichen`
@@ -215,6 +217,8 @@ Lektionen innerhalb einer Lernreise. Statuswerte:
 - `published`
 - `archived`
 
+`intro_text` enthält den verpflichtenden Einstieg vor der Live-Vorlesung.
+
 #### `lesson_steps`
 
 Interaktive Schritte einer Lektion. Typen:
@@ -225,7 +229,25 @@ Interaktive Schritte einer Lektion. Typen:
 - `quiz`
 - `challenge`
 
-Strukturierte Schrittinhalte liegen später im `jsonb`-Feld `content`.
+Strukturierte Schrittinhalte liegen im `jsonb`-Feld `content`. Die Tabelle bleibt für ältere interaktive Einheiten erhalten; der aktuelle Hauptablauf verwendet Einstiegstext, Live-Termin und separates Quiz.
+
+### Multiple-Choice-Quizze
+
+#### `lesson_quizzes`
+
+Pro Lektion kann ein Quiz mit Titel, Beschreibung, Bestehensgrenze und Veröffentlichungsstatus angelegt werden.
+
+#### `quiz_questions` und `quiz_options`
+
+Enthalten geordnete Fragen und jeweils mindestens zwei Antwortmöglichkeiten.
+
+#### `quiz_answer_keys`
+
+Enthält die richtige Antwort und eine optionale Erklärung. Familien können diese Tabelle durch RLS nicht lesen.
+
+#### `quiz_attempts` und `quiz_attempt_answers`
+
+Speichern Versuche, ausgewählte Antworten, Prozentwert und Bestanden-Status. Die Auswertung erfolgt atomar über `submit_multiple_choice_quiz()`; bestandene Quizze schließen den Lektionsfortschritt ab.
 
 ### Familien und Gruppen
 
@@ -315,6 +337,9 @@ academy_years
         └── lessons
               ├── lesson_steps
               ├── live_sessions
+              ├── lesson_quizzes
+              │     ├── quiz_questions ── quiz_options
+              │     └── quiz_attempts ── quiz_attempt_answers
               ├── child_lesson_progress
               └── submissions
 ```
@@ -344,6 +369,8 @@ Zentrale RLS-Helfer:
 - `can_access_group(group_id)`
 - `list_admin_accounts()`
 - `set_profile_primary_role(profile_id, role)`
+- `save_multiple_choice_quiz(...)`
+- `submit_multiple_choice_quiz(...)`
 
 RLS niemals zur Behebung eines Clientfehlers deaktivieren. Stattdessen Policy, Rolle und Abfrage gezielt prüfen.
 
@@ -359,6 +386,7 @@ Aktueller relevanter Stand:
 - `20260814063000_example_academy_data.sql` – historischer Beispiel-Seed ohne Auth-Nutzer
 - `20260814064000_admin_account_management.sql` – Admin-Kontenübersicht und atomare Rollenwechsel
 - `20260814065000_academy_2026_27_curriculum.sql` – entfernt den Beispiel-Seed und legt das echte Curriculum 2026/27 mit vier Lernreisen und 40 Wochen pro Altersgruppe an
+- `20260814070000_lesson_live_quizzes.sql` – Einstiegstexte, normalisierte Multiple-Choice-Quizze, Versuche, RLS und serverseitige Auswertung
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -379,7 +407,9 @@ Bereits funktional umgesetzt:
 - vollständiges leeres Datenbankschema mit RLS
 - responsive App-Shell für Web und Mobile
 - CRUD für Kinderprofile, Akademiejahre, Lernreisen, Lektionen, Gruppen und Live-Termine
-- fester Lektionseditor mit fünf interaktiven Lernschritten
+- dreistufiger Lektionseditor für Einstiegstext, geplanten Live-Zoom-Termin und separates Multiple-Choice-Quiz
+- Quiz-Editor mit beliebig vielen Fragen und Antwortmöglichkeiten, genau einer richtigen Antwort und einstellbarer Bestehensgrenze
+- geschützte Quizseite für Kinder mit serverseitiger Auswertung und Wiederholungsversuchen
 - Fortschritt pro Schritt und Lektion
 - Textantworten und Challenge-Bestätigungen
 - Zoom-Links und Replay-Links aus Supabase

@@ -7,7 +7,7 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - Kinderansicht mit Übersicht, Lernreisen, Kalender und Islam-Pass
 - Elternbereich mit Kinderprofilen, Terminen und Mitteilungen
 - Team-Bereich mit Curriculum, Lektionen, Gruppen und Medien
-- Lektionseditor und Kinderansicht mit der vorgesehenen Fünf-Schritte-Struktur
+- dreistufiger Lektionsablauf mit Einstiegstext, geplanter Live-Zoom-Vorlesung und separatem Multiple-Choice-Quiz
 - responsive Desktop- und Mobilnavigation
 - öffentliche Werbe-Startseite sowie Registrierung und Anmeldung
 - geschützte Akademie-Routen mit Expo Router
@@ -44,13 +44,17 @@ Die Migrationen gleichen `profiles` und `user_roles` ab, reparieren fehlende Pro
 - `academy_years`, `learning_journeys`, `lessons` und `lesson_steps`
 - `children`, `groups` und `group_members`
 - `live_sessions`
+- `lesson_quizzes`, `quiz_questions`, `quiz_options` und geschützte Lösungsschlüssel
+- `quiz_attempts` und `quiz_attempt_answers`
 - `child_lesson_progress`, `child_step_progress` und `submissions`
 - `badges` und `child_badges`
 - `media_assets` und `messages`
 
 Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie veröffentlichte Inhalte; Lehrkräfte und Admins können Akademie-Inhalte verwalten. Dateien liegen im privaten Storage-Bucket `academy-media` und werden über kurzlebige signierte URLs geöffnet.
 
-Die Migration `20260814065000_academy_2026_27_curriculum.sql` entfernt die früheren Beispieldaten und richtet das Akademiejahr 2026/27 ein. Enthalten sind zwei Altersgruppen, vier jährliche Lernreisen, ein 40-Wochen-Themengerüst je Altersgruppe, fünf vorbereitete Lernschritte pro Lektion, zwei Kursgruppen, sechs Abzeichen und eine Startmitteilung. Reale Zoom-Termine, Links und Lehrkraft-Zuordnungen werden anschließend im geschützten Team-Bereich gepflegt.
+Die Migration `20260814065000_academy_2026_27_curriculum.sql` entfernt die früheren Beispieldaten und richtet das Akademiejahr 2026/27 ein. Enthalten sind zwei Altersgruppen, vier jährliche Lernreisen, ein 40-Wochen-Themengerüst je Altersgruppe, zwei Kursgruppen, sechs Abzeichen und eine Startmitteilung. Reale Zoom-Termine, Links und Lehrkraft-Zuordnungen werden anschließend im geschützten Team-Bereich gepflegt.
+
+Die Migration `20260814070000_lesson_live_quizzes.sql` ergänzt den aktuellen Lektionsablauf aus Einstiegstext, geplantem Live-Unterricht und Multiple-Choice-Quiz. Richtige Antworten sind von den sichtbaren Antwortmöglichkeiten getrennt und werden ausschließlich durch eine geschützte Supabase-Funktion ausgewertet.
 
 3. Unter **Authentication → URL Configuration** die URLs freigeben:
 

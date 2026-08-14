@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
-import { DataLoading, ErrorBanner, RowActions } from '@/components/ui/data-ui';
+import { DataLoading, ErrorBanner, IconAction, RowActions } from '@/components/ui/data-ui';
 import {
   ActionButton,
   AppText,
@@ -37,13 +37,18 @@ export default function LessonsScreen() {
       const matchesSearch =
         !query ||
         lesson.title.toLocaleLowerCase('de-DE').includes(query) ||
-        lesson.description?.toLocaleLowerCase('de-DE').includes(query);
+        lesson.description?.toLocaleLowerCase('de-DE').includes(query) ||
+        lesson.intro_text.toLocaleLowerCase('de-DE').includes(query);
       return matchesFilter && matchesSearch;
     });
   }, [data.lessons, filter, search]);
 
   function editLesson(lesson: LessonRow) {
     router.push(`/lektion-neu?lessonId=${lesson.id}` as Href);
+  }
+
+  function editQuiz(lesson: LessonRow) {
+    router.push(`/quiz-bearbeiten?lessonId=${lesson.id}` as Href);
   }
 
   async function removeLesson(lesson: LessonRow) {
@@ -104,8 +109,11 @@ export default function LessonsScreen() {
           <View style={styles.lessonList}>
             {filteredLessons.map((lesson) => {
               const journey = data.journeys.find((entry) => entry.id === lesson.learning_journey_id);
-              const stepCount = data.lessonSteps.filter((step) => step.lesson_id === lesson.id).length;
               const session = data.liveSessions.find((entry) => entry.lesson_id === lesson.id);
+              const quiz = data.quizzes.find((entry) => entry.lesson_id === lesson.id);
+              const questionCount = quiz
+                ? data.quizQuestions.filter((question) => question.quiz_id === quiz.id).length
+                : 0;
               return (
                 <View key={lesson.id} style={styles.lessonRow}>
                   <View style={styles.lessonIcon}>
@@ -119,12 +127,17 @@ export default function LessonsScreen() {
                       </Pill>
                     </View>
                     <AppText variant="small" color={Palette.inkSoft}>
-                      {journey?.title ?? 'Unbekannte Lernreise'} · {stepCount} Schritte
-                      {session ? ` · Live am ${formatDate(session.starts_at)}` : ''}
+                      {journey?.title ?? 'Unbekannte Lernreise'}
+                      {session ? ` · Live am ${formatDate(session.starts_at)}` : ' · Live-Termin offen'}
+                      {quiz ? ` · ${questionCount} Quizfragen` : ' · Quiz offen'}
                     </AppText>
                     {lesson.description && <AppText color={Palette.inkSoft} numberOfLines={2}>{lesson.description}</AppText>}
                   </View>
-                  <RowActions onEdit={() => editLesson(lesson)} onDelete={() => void removeLesson(lesson)} />
+                  <RowActions
+                    extra={<IconAction icon="check" label="Quiz bearbeiten" onPress={() => editQuiz(lesson)} />}
+                    onEdit={() => editLesson(lesson)}
+                    onDelete={() => void removeLesson(lesson)}
+                  />
                 </View>
               );
             })}

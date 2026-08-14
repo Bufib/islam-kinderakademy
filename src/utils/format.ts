@@ -51,6 +51,10 @@ export function apiErrorMessage(error: unknown) {
   if (normalized.includes('last admin')) return 'Der letzte Admin kann die eigene Adminrolle nicht entfernen.';
   if (normalized.includes('admin role required')) return 'Für diese Aktion ist eine Adminrolle erforderlich.';
   if (normalized.includes('invalid account role')) return 'Die ausgewählte Kontorolle ist ungültig.';
+  if (normalized.includes('academy staff role required')) return 'Für diese Aktion ist eine Teamrolle erforderlich.';
+  if (normalized.includes('child access required')) return 'Für dieses Kinderprofil fehlt die Berechtigung.';
+  if (normalized.includes('published quiz not found')) return 'Das Quiz ist noch nicht veröffentlicht oder nicht mehr verfügbar.';
+  if (normalized.includes('every quiz question must have one valid answer')) return 'Bitte beantworte jede Quizfrage genau einmal.';
   if (normalized.includes('network')) return 'Die Verbindung zu Supabase ist fehlgeschlagen.';
   return raw || 'Die Aktion konnte nicht ausgeführt werden.';
 }

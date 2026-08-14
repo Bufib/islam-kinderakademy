@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { DataLoading, ErrorBanner, RowActions } from '@/components/ui/data-ui';
-import { AppText, Card, EmptyState, PageScaffold, Pill } from '@/components/ui/primitives';
+import { AppText, Card, EmptyState, PageScaffold, Pill, SectionHeader } from '@/components/ui/primitives';
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
@@ -44,13 +44,56 @@ export default function SubmissionsScreen() {
     }
   }
 
+  async function removeQuizAttempt(id: number) {
+    const confirmed = await confirmAction('Quizversuch löschen?', 'Das Ergebnis wird aus der Auswertung entfernt.');
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await execute(() => deleteRecord('quiz_attempts', id));
+    } catch (reason) {
+      setActionError(apiErrorMessage(reason));
+    }
+  }
+
   return (
     <PageScaffold
       eyebrow={isTeam ? 'Team-Bereich' : 'Familienbereich'}
       title="Abgaben"
-      description="Antworten und Bestätigungen aus den interaktiven Lernschritten.">
+      description="Quiz-Ergebnisse und weitere eingereichte Antworten der Kinder.">
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       {actionError && <ErrorBanner message={actionError} />}
+      <SectionHeader title="Multiple-Choice-Ergebnisse" description="Automatisch ausgewertete Quizversuche" />
+      <Card>
+        {isLoading && data.quizAttempts.length === 0 ? (
+          <DataLoading />
+        ) : data.quizAttempts.length === 0 ? (
+          <EmptyState compact icon="check" title="Noch keine Quizversuche" description="Abgegebene Multiple-Choice-Quizze erscheinen hier mit Ergebnis und Status." />
+        ) : (
+          <View style={styles.list}>
+            {data.quizAttempts.map((attempt) => {
+              const child = data.children.find((entry) => entry.id === attempt.child_id);
+              const quiz = data.quizzes.find((entry) => entry.id === attempt.quiz_id);
+              const lesson = data.lessons.find((entry) => entry.id === quiz?.lesson_id);
+              return (
+                <View key={attempt.id} style={styles.row}>
+                  <View style={styles.icon}><AppIcon name={attempt.passed ? 'trophy' : 'refresh'} size={20} color={Palette.forest} /></View>
+                  <View style={styles.copy}>
+                    <View style={styles.titleLine}>
+                      <AppText variant="bodyStrong">{child?.display_name ?? 'Kinderprofil'}</AppText>
+                      <Pill tone={attempt.passed ? 'mint' : 'sun'}>{attempt.passed ? 'Bestanden' : 'Nicht bestanden'}</Pill>
+                    </View>
+                    <AppText color={Palette.inkSoft}>{attempt.correct_answers} von {attempt.total_questions} richtig · {attempt.score_percent} %</AppText>
+                    <AppText variant="small" color={Palette.muted}>{lesson?.title ?? quiz?.title ?? 'Quiz'} · {formatDateTime(attempt.submitted_at)}</AppText>
+                  </View>
+                  {isTeam && <RowActions onDelete={() => void removeQuizAttempt(attempt.id)} />}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </Card>
+
+      <SectionHeader title="Weitere Abgaben" description="Ältere Text-, Audio-, Bild- und Bestätigungsabgaben" />
       <View style={styles.filters}>
         {filterOptions.map((option) => (
           <Pressable key={option.value} onPress={() => setFilter(option.value)}>
@@ -62,7 +105,7 @@ export default function SubmissionsScreen() {
         {isLoading && data.submissions.length === 0 ? (
           <DataLoading />
         ) : visible.length === 0 ? (
-          <EmptyState icon="check" title="Noch keine Abgaben" description="Abgeschickte Quizantworten und Challenges erscheinen automatisch hier." />
+          <EmptyState icon="check" title="Noch keine weiteren Abgaben" description="Text-, Audio-, Bild- und Bestätigungsabgaben erscheinen hier." />
         ) : (
           <View style={styles.list}>
             {visible.map((submission) => {

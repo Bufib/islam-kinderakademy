@@ -76,10 +76,17 @@ export function ChildDashboard() {
       (lesson) => progressRows.find((row) => row.lesson_id === lesson.id)?.status !== 'completed'
     ) ?? lessons.at(-1);
   const nextProgress = progressRows.find((row) => row.lesson_id === nextLesson?.id)?.progress_percent ?? 0;
-  const nextSteps = data.lessonSteps.filter((step) => step.lesson_id === nextLesson?.id);
-  const completedStepIds = new Set(
-    data.stepProgress.filter((row) => row.child_id === child.id).map((row) => row.lesson_step_id)
+  const nextQuiz = data.quizzes.find(
+    (quiz) => quiz.lesson_id === nextLesson?.id && quiz.is_published
   );
+  const nextQuizQuestionCount = nextQuiz
+    ? data.quizQuestions.filter((question) => question.quiz_id === nextQuiz.id).length
+    : 0;
+  const latestQuizAttempt = nextQuiz
+    ? data.quizAttempts.find(
+        (attempt) => attempt.child_id === child.id && attempt.quiz_id === nextQuiz.id
+      )
+    : null;
   const childGroupIds = data.groupMembers
     .filter((member) => member.child_id === child.id)
     .map((member) => member.group_id);
@@ -91,12 +98,6 @@ export function ChildDashboard() {
         (session.group_id === null || childGroupIds.includes(session.group_id))
     )
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
-  const challenge = nextSteps.find((step) => step.step_type === 'challenge');
-  const challengeDone = challenge
-    ? data.submissions.some(
-        (submission) => submission.child_id === child.id && submission.lesson_step_id === challenge.id
-      )
-    : false;
 
   return (
     <PageScaffold eyebrow="Mein Bereich" title={`Salam, ${child.display_name}!`}>
@@ -138,7 +139,7 @@ export function ChildDashboard() {
             <View style={styles.roundIconMint}>
               <AppIcon name="check" size={23} color={Palette.forest} />
             </View>
-            <Pill>{nextSteps.filter((step) => completedStepIds.has(step.id)).length} von {nextSteps.length || 5}</Pill>
+            <Pill>3 Phasen</Pill>
           </View>
           <View style={styles.weekCopy}>
             <AppText variant="heading">Mein Wochenweg</AppText>
@@ -148,17 +149,11 @@ export function ChildDashboard() {
           </View>
           <ProgressBar value={nextProgress} />
           <View style={styles.stepDots}>
-            {(nextSteps.length ? nextSteps : Array.from({ length: 5 }, (_, index) => ({ id: -index - 1 }))).map(
-              (step, index) => (
-                <View key={step.id} style={[styles.stepDot, completedStepIds.has(step.id) && styles.stepDotDone]}>
-                  {completedStepIds.has(step.id) ? (
-                    <AppIcon name="check" size={16} color={Palette.white} />
-                  ) : (
-                    <AppText variant="small" color={Palette.muted}>{index + 1}</AppText>
-                  )}
-                </View>
-              )
-            )}
+            <View style={styles.stepDot}><AppIcon name="play" size={16} color={Palette.forest} /></View>
+            <View style={styles.stepDot}><AppIcon name="video" size={16} color={Palette.forest} /></View>
+            <View style={[styles.stepDot, nextProgress === 100 && styles.stepDotDone]}>
+              <AppIcon name="check" size={16} color={nextProgress === 100 ? Palette.white : Palette.forest} />
+            </View>
           </View>
         </Card>
       </View>
@@ -192,19 +187,23 @@ export function ChildDashboard() {
 
         <Card style={styles.infoCard}>
           <View style={styles.infoCardTop}>
-            <View style={[styles.infoIcon, { backgroundColor: Palette.coralSoft }]}>
-              <AppIcon name="trophy" size={23} color="#934E39" />
+            <View style={[styles.infoIcon, { backgroundColor: Palette.mint }]}>
+              <AppIcon name="check" size={23} color={Palette.forest} />
             </View>
-            <Pill tone="coral">Wochen-Challenge</Pill>
+            <Pill tone="mint">Abschluss-Quiz</Pill>
           </View>
           <View style={styles.infoCardCopy}>
-            <AppText variant="heading">{challenge?.title ?? 'Noch keine Challenge'}</AppText>
+            <AppText variant="heading">{nextQuiz?.title ?? 'Quiz wird vorbereitet'}</AppText>
             <AppText color={Palette.inkSoft}>
-              {challenge ? (challengeDone ? 'Schon abgegeben – stark gemacht!' : 'Öffne die Lektion und erledige die Aufgabe.') : 'Die Aufgabe erscheint mit der Lektion.'}
+              {latestQuizAttempt
+                ? `${latestQuizAttempt.score_percent} % erreicht${latestQuizAttempt.passed ? ' – bestanden!' : '. Du kannst es erneut versuchen.'}`
+                : nextQuiz
+                  ? `${nextQuizQuestionCount} Fragen warten nach dem Live-Unterricht auf dich.`
+                  : 'Das Quiz erscheint nach der Veröffentlichung.'}
             </AppText>
           </View>
           <ActionButton
-            label={challengeDone ? 'Abgabe ansehen' : 'Zur Lektion'}
+            label={nextQuiz ? 'Zur Lektion und zum Quiz' : 'Zur Lektion'}
             icon={nextLesson ? 'arrow' : 'clock'}
             variant="secondary"
             disabled={!nextLesson}
@@ -217,7 +216,7 @@ export function ChildDashboard() {
       <View style={styles.statsGrid}>
         <StatCard icon="lessons" value={String(completedLessons)} label="Lektionen" tone="mint" />
         <StatCard icon="pass" value={String(data.childBadges.filter((row) => row.child_id === child.id).length)} label="Abzeichen" tone="sun" />
-        <StatCard icon="trophy" value={String(data.submissions.filter((row) => row.child_id === child.id).length)} label="Abgaben" tone="coral" />
+        <StatCard icon="trophy" value={String(data.quizAttempts.filter((row) => row.child_id === child.id).length)} label="Quizversuche" tone="coral" />
       </View>
     </PageScaffold>
   );

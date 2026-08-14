@@ -1,64 +1,52 @@
 import * as Linking from 'expo-linking';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { DataLoading, ErrorBanner } from '@/components/ui/data-ui';
-import { ActionButton, AppText, Card, EmptyState, Field, PageScaffold, Pill, ProgressBar } from '@/components/ui/primitives';
+import { ActionButton, AppText, Card, EmptyState, PageScaffold, Pill, ProgressBar } from '@/components/ui/primitives';
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
-import { saveConfirmationSubmission, saveTextSubmission, setStepCompleted } from '@/lib/academy-api';
-import { LessonStepRow, LessonStepType } from '@/types/database';
-import { apiErrorMessage, formatDateTime } from '@/utils/format';
+import { formatDateTime } from '@/utils/format';
 
-const stepMeta: Record<LessonStepType, { label: string; icon: 'play' | 'journeys' | 'lessons' | 'check' | 'trophy'; tone: 'mint' | 'sun' | 'sky' | 'coral' | 'neutral' }> = {
-  start: { label: 'Start', icon: 'play', tone: 'mint' },
-  discover: { label: 'Entdecken', icon: 'journeys', tone: 'sun' },
-  explain: { label: 'Verstehen', icon: 'lessons', tone: 'sky' },
-  quiz: { label: 'Quiz', icon: 'check', tone: 'mint' },
-  challenge: { label: 'Challenge', icon: 'trophy', tone: 'coral' },
-};
+const sessionLabels = {
+  scheduled: 'Geplant',
+  live: 'Jetzt live',
+  completed: 'Abgeschlossen',
+  cancelled: 'Abgesagt',
+} as const;
 
-function contentText(step: LessonStepRow) {
-  if (
-    step.content &&
-    typeof step.content === 'object' &&
-    !Array.isArray(step.content) &&
-    typeof step.content.text === 'string'
-  ) {
-    return step.content.text;
-  }
-  return '';
-}
+const sessionPriority = {
+  live: 0,
+  scheduled: 1,
+  completed: 2,
+  cancelled: 3,
+} as const;
 
 export default function LessonDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const lessonId = Number(params.id);
   const { selectedChildId } = useAcademy();
-  const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [savingStepId, setSavingStepId] = useState<number | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const child = data.children.find((entry) => entry.id === selectedChildId);
-  const lesson = data.lessons.find((entry) => entry.id === lessonId && entry.status === 'published');
-  const journey = data.journeys.find((entry) => entry.id === lesson?.learning_journey_id);
-  const steps = useMemo(
-    () => data.lessonSteps.filter((entry) => entry.lesson_id === lessonId).sort((a, b) => a.position - b.position),
-    [data.lessonSteps, lessonId]
-  );
-  const completedIds = useMemo(
-    () => new Set(data.stepProgress.filter((row) => row.child_id === child?.id).map((row) => row.lesson_step_id)),
-    [child?.id, data.stepProgress]
-  );
-  const progress = steps.length
-    ? Math.round((steps.filter((step) => completedIds.has(step.id)).length / steps.length) * 100)
-    : 0;
+  const { data, isLoading, error, refresh } = useAcademyData();
+  const child = data.children.find((entry) => entry.id === selectedChildId) ?? null;
+  const lesson = data.lessons.find((entry) => entry.id === lessonId && entry.status === 'published') ?? null;
+  const journey = data.journeys.find((entry) => entry.id === lesson?.learning_journey_id) ?? null;
   const liveSession = data.liveSessions
     .filter((session) => session.lesson_id === lessonId && session.status !== 'cancelled')
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+    .sort((a, b) => sessionPriority[a.status] - sessionPriority[b.status] || a.starts_at.localeCompare(b.starts_at))[0] ?? null;
+  const quiz = data.quizzes.find((entry) => entry.lesson_id === lessonId && entry.is_published) ?? null;
+  const questionCount = quiz
+    ? data.quizQuestions.filter((question) => question.quiz_id === quiz.id).length
+    : 0;
+  const progress = data.lessonProgress.find(
+    (entry) => entry.child_id === child?.id && entry.lesson_id === lessonId
+  );
+  const attempts = quiz && child
+    ? data.quizAttempts.filter((attempt) => attempt.quiz_id === quiz.id && attempt.child_id === child.id)
+    : [];
+  const bestScore = attempts.reduce((best, attempt) => Math.max(best, attempt.score_percent), 0);
 
   if (isLoading && (!child || !lesson)) return <DataLoading label="Lektion wird geladen …" />;
 
@@ -78,149 +66,142 @@ export default function LessonDetailScreen() {
     );
   }
 
-  async function toggleStep(step: LessonStepRow) {
-    if (!child || !lesson) return;
-    const completed = completedIds.has(step.id);
-    const storedAnswer = data.submissions.find(
-      (submission) => submission.child_id === child.id && submission.lesson_step_id === step.id
-    )?.text_value;
-    const answer = (answers[step.id] ?? storedAnswer ?? '').trim();
-    if (!completed && step.step_type === 'quiz' && !answer) {
-      setActionError('Schreibe zuerst deine Antwort für das Quiz auf.');
-      return;
-    }
-
-    setSavingStepId(step.id);
-    setActionError(null);
-    try {
-      await execute(async () => {
-        if (!completed && step.step_type === 'quiz') {
-          await saveTextSubmission(child.id, lesson.id, step.id, answer);
-        }
-        if (!completed && step.step_type === 'challenge') {
-          await saveConfirmationSubmission(child.id, lesson.id, step.id, answer);
-        }
-        await setStepCompleted(child.id, lesson.id, step.id, !completed);
-      });
-    } catch (reason) {
-      setActionError(apiErrorMessage(reason));
-    } finally {
-      setSavingStepId(null);
-    }
-  }
-
   return (
     <PageScaffold
       eyebrow={journey?.title ?? 'Lernreise'}
       title={lesson.title}
       description={lesson.description ?? undefined}
       action={<ActionButton label="Zurück" icon="arrow" variant="secondary" onPress={() => router.back()} />}>
-      {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
-      {actionError && <ErrorBanner message={actionError} />}
+      {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
 
       <Card tone="dark" style={styles.progressCard}>
-        <View style={styles.progressHeader}>
-          <View style={styles.progressCopy}>
-            <Pill tone={progress === 100 ? 'sun' : 'mint'}>{progress === 100 ? 'Geschafft' : 'Dein Fortschritt'}</Pill>
-            <AppText variant="heading" color={Palette.white}>
-              {steps.filter((step) => completedIds.has(step.id)).length} von {steps.length} Schritten abgeschlossen
-            </AppText>
-          </View>
-          <AppText variant="title" color={Palette.sun}>{progress}%</AppText>
+        <View style={styles.progressCopy}>
+          <Pill tone={progress?.status === 'completed' ? 'sun' : 'mint'}>
+            {progress?.status === 'completed' ? 'Lektion abgeschlossen' : 'Deine Lektion'}
+          </Pill>
+          <AppText variant="heading" color={Palette.white}>
+            Lesen, live dabei sein und anschließend das Quiz lösen.
+          </AppText>
+          <ProgressBar
+            value={progress?.progress_percent ?? 0}
+            color={Palette.sun}
+            trackColor="rgba(255,255,255,0.13)"
+          />
         </View>
-        <ProgressBar value={progress} color={Palette.sun} trackColor="rgba(255,255,255,0.13)" />
-        {(lesson.replay_url || liveSession) && (
-          <View style={styles.linkRow}>
-            {liveSession?.meeting_url && (
-              <ActionButton label={`Zoom · ${formatDateTime(liveSession.starts_at)}`} icon="external" variant="secondary" onPress={() => void Linking.openURL(liveSession.meeting_url!)} />
-            )}
-            {(lesson.replay_url || liveSession?.replay_url) && (
-              <ActionButton label="Aufzeichnung öffnen" icon="play" variant="secondary" onPress={() => void Linking.openURL(lesson.replay_url || liveSession!.replay_url!)} />
-            )}
-          </View>
-        )}
+        <AppText variant="title" color={Palette.sun}>{progress?.progress_percent ?? 0} %</AppText>
       </Card>
 
-      {steps.length === 0 ? (
-        <Card><EmptyState icon="lessons" title="Noch keine Lernschritte" description="Das Akademie-Team ergänzt die Lernschritte später." /></Card>
-      ) : (
-        <View style={styles.stepsList}>
-          {steps.map((step, index) => {
-            const meta = stepMeta[step.step_type];
-            const completed = completedIds.has(step.id);
-            const interactive = step.step_type === 'quiz' || step.step_type === 'challenge';
-            const storedAnswer = data.submissions.find(
-              (submission) => submission.child_id === child.id && submission.lesson_step_id === step.id
-            )?.text_value;
-            return (
-              <Card key={step.id} style={[styles.stepCard, completed && styles.stepCardDone]}>
-                <View style={styles.stepHeader}>
-                  <View style={[styles.stepIcon, completed && styles.stepIconDone]}>
-                    <AppIcon name={completed ? 'check' : meta.icon} size={21} color={completed ? Palette.white : Palette.forest} />
-                  </View>
-                  <View style={styles.stepTitle}>
-                    <View style={styles.stepMeta}>
-                      <Pill tone={meta.tone}>{meta.label}</Pill>
-                      <AppText variant="small" color={Palette.muted}>Schritt {index + 1}</AppText>
-                    </View>
-                    <AppText variant="heading">{step.title || meta.label}</AppText>
-                  </View>
+      <View style={styles.flow}>
+        <Card style={styles.flowCard}>
+          <View style={styles.flowHeader}>
+            <View style={[styles.stepNumber, styles.stepStart]}><AppText variant="bodyStrong">1</AppText></View>
+            <View style={styles.flowHeading}>
+              <AppText variant="label" color={Palette.muted}>Vorbereitung</AppText>
+              <AppText variant="heading">Einstieg in das Thema</AppText>
+            </View>
+            <Pill tone="mint">Lesen</Pill>
+          </View>
+          {lesson.intro_text ? (
+            <AppText color={Palette.inkSoft}>{lesson.intro_text}</AppText>
+          ) : (
+            <AppText color={Palette.muted}>Der Einstiegstext wird noch ergänzt.</AppText>
+          )}
+        </Card>
+
+        <View style={styles.connector} />
+
+        <Card tone="sky" style={styles.flowCard}>
+          <View style={styles.flowHeader}>
+            <View style={[styles.stepNumber, styles.stepLive]}><AppIcon name="video" size={20} color={Palette.forest} /></View>
+            <View style={styles.flowHeading}>
+              <AppText variant="label" color={Palette.muted}>Live-Unterricht</AppText>
+              <AppText variant="heading">Zoom-Vorlesung</AppText>
+            </View>
+            {liveSession && <Pill tone={liveSession.status === 'live' ? 'coral' : 'sky'}>{sessionLabels[liveSession.status]}</Pill>}
+          </View>
+          {liveSession ? (
+            <View style={styles.liveDetails}>
+              <View style={styles.liveTime}>
+                <AppIcon name="calendar" size={21} color={Palette.forest} />
+                <View style={styles.liveTimeCopy}>
+                  <AppText variant="bodyStrong">{formatDateTime(liveSession.starts_at)}</AppText>
+                  <AppText variant="small" color={Palette.inkSoft}>Ende: {formatDateTime(liveSession.ends_at)}</AppText>
                 </View>
-                {contentText(step) ? <AppText color={Palette.inkSoft}>{contentText(step)}</AppText> : null}
-                {interactive && (
-                  <Field
-                    label={step.step_type === 'quiz' ? 'Deine Antwort' : 'Deine Notiz (optional)'}
-                    placeholder={step.step_type === 'quiz' ? 'Antwort aufschreiben …' : 'Was hast du gemacht oder gelernt?'}
-                    multiline
-                    editable={!completed}
-                    value={answers[step.id] ?? storedAnswer ?? ''}
-                    onChangeText={(value) => setAnswers((current) => ({ ...current, [step.id]: value }))}
+              </View>
+              <View style={styles.liveActions}>
+                {liveSession.meeting_url && liveSession.status !== 'completed' && (
+                  <ActionButton
+                    label={liveSession.status === 'live' ? 'Jetzt Zoom öffnen' : 'Zoom-Zugang öffnen'}
+                    icon="external"
+                    onPress={() => void Linking.openURL(liveSession.meeting_url!)}
                   />
                 )}
-                <View style={styles.stepFooter}>
+                {(lesson.replay_url || liveSession.replay_url) && (
                   <ActionButton
-                    label={savingStepId === step.id ? 'Wird gespeichert …' : completed ? 'Als offen markieren' : interactive ? 'Antwort speichern & abschließen' : 'Schritt abschließen'}
-                    icon={completed ? 'refresh' : 'check'}
-                    variant={completed ? 'secondary' : 'primary'}
-                    disabled={savingStepId !== null}
-                    onPress={() => void toggleStep(step)}
+                    label="Aufzeichnung öffnen"
+                    icon="play"
+                    variant="secondary"
+                    onPress={() => void Linking.openURL(lesson.replay_url || liveSession.replay_url!)}
                   />
-                </View>
-              </Card>
-            );
-          })}
-        </View>
-      )}
-
-      {progress === 100 && (
-        <Card tone="sun" style={styles.doneCard}>
-          <View style={styles.doneIcon}><AppIcon name="trophy" size={28} color="#846211" /></View>
-          <View style={styles.doneCopy}>
-            <AppText variant="heading">MashaAllah, Lektion geschafft!</AppText>
-            <AppText color={Palette.inkSoft}>Dein Fortschritt wurde in Supabase gespeichert.</AppText>
-          </View>
-          <ActionButton label="Weiter zu den Lernreisen" variant="secondary" onPress={() => router.replace('/lernreisen')} />
+                )}
+              </View>
+            </View>
+          ) : (
+            <EmptyState compact icon="clock" title="Termin folgt" description="Der nächste Zoom-Termin wird hier zeitlich geplant angezeigt." />
+          )}
         </Card>
-      )}
+
+        <View style={styles.connector} />
+
+        <Card tone="mint" style={styles.flowCard}>
+          <View style={styles.flowHeader}>
+            <View style={[styles.stepNumber, styles.stepQuiz]}><AppIcon name="check" size={20} color={Palette.white} /></View>
+            <View style={styles.flowHeading}>
+              <AppText variant="label" color={Palette.muted}>Abschluss</AppText>
+              <AppText variant="heading">Multiple-Choice-Quiz</AppText>
+            </View>
+            {progress?.status === 'completed' && <Pill tone="sun">Bestanden</Pill>}
+          </View>
+          {quiz && questionCount > 0 ? (
+            <View style={styles.quizDetails}>
+              <View style={styles.quizCopy}>
+                <AppText color={Palette.inkSoft}>{quiz.description ?? 'Überprüfe, was du aus der Vorlesung mitgenommen hast.'}</AppText>
+                <AppText variant="small" color={Palette.muted}>
+                  {questionCount} Fragen · Bestehensgrenze {quiz.passing_percent} %
+                  {attempts.length > 0 ? ` · Bestes Ergebnis ${bestScore} %` : ''}
+                </AppText>
+              </View>
+              <ActionButton
+                label={attempts.length > 0 ? 'Quiz erneut öffnen' : 'Quiz starten'}
+                icon="arrow"
+                onPress={() => router.push(`/quiz/${lesson.id}` as Href)}
+              />
+            </View>
+          ) : (
+            <EmptyState compact icon="clock" title="Quiz wird vorbereitet" description="Das Quiz erscheint nach der Veröffentlichung auf einer eigenen Seite." />
+          )}
+        </Card>
+      </View>
     </PageScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  progressCard: { gap: Space.lg },
-  progressHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: Space.lg },
-  progressCopy: { flex: 1, minWidth: 230, alignItems: 'flex-start', gap: Space.md },
-  linkRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
-  stepsList: { gap: Space.lg },
-  stepCard: { gap: Space.lg, borderWidth: 1, borderColor: Palette.line },
-  stepCardDone: { borderColor: Palette.mintStrong, backgroundColor: '#FBFFFC' },
-  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
-  stepIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
-  stepIconDone: { backgroundColor: Palette.forest },
-  stepTitle: { flex: 1, minWidth: 0, gap: 6 },
-  stepMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
-  stepFooter: { flexDirection: 'row', justifyContent: 'flex-end', borderTopWidth: 1, borderTopColor: Palette.line, paddingTop: Space.md },
-  doneCard: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.lg },
-  doneIcon: { width: 58, height: 58, borderRadius: Radius.large, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
-  doneCopy: { flex: 1, minWidth: 240, gap: 3 },
+  progressCard: { flexDirection: 'row', alignItems: 'center', gap: Space.xl },
+  progressCopy: { flex: 1, alignItems: 'flex-start', gap: Space.md },
+  flow: { alignItems: 'stretch' },
+  flowCard: { gap: Space.xl },
+  flowHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md },
+  flowHeading: { flex: 1, minWidth: 190, gap: 2 },
+  stepNumber: { width: 46, height: 46, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center' },
+  stepStart: { backgroundColor: Palette.sunSoft },
+  stepLive: { backgroundColor: 'rgba(255,255,255,0.62)' },
+  stepQuiz: { backgroundColor: Palette.forest },
+  connector: { width: 2, height: 26, alignSelf: 'flex-start', marginLeft: 45, backgroundColor: Palette.line },
+  liveDetails: { gap: Space.lg },
+  liveTime: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  liveTimeCopy: { gap: 2 },
+  liveActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
+  quizDetails: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
+  quizCopy: { flex: 1, minWidth: 230, gap: Space.sm },
 });

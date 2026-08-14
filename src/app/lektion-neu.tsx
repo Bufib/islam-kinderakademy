@@ -1,8 +1,8 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { AppIcon, AppIconName } from '@/components/ui/app-icon';
+import { AppIcon } from '@/components/ui/app-icon';
 import { ChoiceChips, DataLoading, ErrorBanner } from '@/components/ui/data-ui';
 import {
   ActionButton,
@@ -20,26 +20,9 @@ import {
   AcademyData,
   LessonRow,
   LessonStatus,
-  LessonStepType,
   LiveSessionRow,
 } from '@/types/database';
 import { apiErrorMessage, parseDateTimeInput, toDateTimeInput } from '@/utils/format';
-
-const stepDefinitions: {
-  stepType: LessonStepType;
-  title: string;
-  description: string;
-  icon: AppIconName;
-  tone: string;
-}[] = [
-  { stepType: 'start', title: 'Start', description: 'Einstiegsfrage oder erste Situation', icon: 'play', tone: Palette.sunSoft },
-  { stepType: 'discover', title: 'Entdecken', description: 'Geschichte, Bilder und Erklärung', icon: 'journeys', tone: Palette.skySoft },
-  { stepType: 'explain', title: 'Kinder erklären', description: 'Fragen, Denken und eigene Beispiele', icon: 'children', tone: Palette.mint },
-  { stepType: 'quiz', title: 'Mini-Quiz', description: 'Kurze interaktive Lernkontrolle', icon: 'check', tone: '#EEF1EF' },
-  { stepType: 'challenge', title: 'Wochen-Challenge', description: 'Aufgabe für den Alltag', icon: 'trophy', tone: Palette.coralSoft },
-];
-
-type StepForm = { stepType: LessonStepType; title: string; text: string; position: number };
 
 export default function LessonEditorScreen() {
   const params = useLocalSearchParams<{ lessonId?: string }>();
@@ -67,34 +50,22 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
   const { execute } = useAcademyData();
-  const existingSteps = initialLesson
-    ? data.lessonSteps.filter((step) => step.lesson_id === initialLesson.id)
-    : [];
   const existingSession = initialLesson
     ? data.liveSessions.find((session) => session.lesson_id === initialLesson.id) ?? null
     : null;
+  const existingQuiz = initialLesson
+    ? data.quizzes.find((quiz) => quiz.lesson_id === initialLesson.id) ?? null
+    : null;
+  const quizQuestionCount = existingQuiz
+    ? data.quizQuestions.filter((question) => question.quiz_id === existingQuiz.id).length
+    : 0;
   const [title, setTitle] = useState(initialLesson?.title ?? '');
   const [description, setDescription] = useState(initialLesson?.description ?? '');
+  const [introText, setIntroText] = useState(initialLesson?.intro_text ?? '');
   const [journeyId, setJourneyId] = useState<number | null>(initialLesson?.learning_journey_id ?? null);
   const [status, setStatus] = useState<LessonStatus>(initialLesson?.status ?? 'draft');
   const [publishAt, setPublishAt] = useState(initialLesson?.publish_at?.slice(0, 16) ?? '');
   const [replayUrl, setReplayUrl] = useState(initialLesson?.replay_url ?? '');
-  const [steps, setSteps] = useState<StepForm[]>(
-    stepDefinitions.map((definition, position) => {
-      const existing = existingSteps.find((step) => step.position === position);
-      const content = existing?.content;
-      const text =
-        content && typeof content === 'object' && !Array.isArray(content) && typeof content.text === 'string'
-          ? content.text
-          : '';
-      return {
-        stepType: definition.stepType,
-        title: existing?.title ?? definition.title,
-        text,
-        position,
-      };
-    })
-  );
   const [hasLiveSession, setHasLiveSession] = useState(Boolean(existingSession));
   const [liveGroupId, setLiveGroupId] = useState<number | null>(existingSession?.group_id ?? null);
   const [liveTitle, setLiveTitle] = useState(existingSession?.title ?? '');
@@ -106,13 +77,9 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
 
   const effectiveJourneyId = journeyId ?? data.journeys[0]?.id ?? null;
 
-  function updateStep(position: number, changes: Partial<StepForm>) {
-    setSteps((current) => current.map((step) => (step.position === position ? { ...step, ...changes } : step)));
-  }
-
   async function submit() {
-    if (!title.trim() || !effectiveJourneyId) {
-      setFormError('Titel und Lernreise sind erforderlich.');
+    if (!title.trim() || !introText.trim() || !effectiveJourneyId) {
+      setFormError('Titel, Lernreise und Einstiegstext sind erforderlich.');
       return;
     }
 
@@ -150,13 +117,13 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
           learningJourneyId: effectiveJourneyId,
           title,
           description,
+          introText,
           status,
           position:
             initialLesson?.position ??
             data.lessons.filter((lesson) => lesson.learning_journey_id === effectiveJourneyId).length,
           publishAt: publishAt || null,
           replayUrl,
-          steps,
           liveSession: liveSession
             ? {
                 id: existingSession?.id,
@@ -181,7 +148,7 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
     <PageScaffold
       eyebrow="Lektionseditor"
       title={initialLesson ? 'Lektion bearbeiten' : 'Neue Lektion'}
-      description="Grunddaten, Lernschritte, Veröffentlichung und Live-Unterricht werden gemeinsam gespeichert."
+      description="Eine Lektion führt vom Einstiegstext über den geplanten Live-Unterricht zum Multiple-Choice-Quiz."
       action={
         <View style={[styles.headerActions, compact && styles.headerActionsCompact]}>
           <ActionButton label="Abbrechen" variant="secondary" onPress={() => router.back()} />
@@ -216,29 +183,90 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
             </View>
           </Card>
 
-          <SectionHeader title="Unterrichtsschritte" description="Die feste Fünf-Schritte-Struktur" />
-          <View style={styles.stepsList}>
-            {steps.map((step, index) => {
-              const definition = stepDefinitions[index];
-              return (
-                <Card key={step.stepType} style={styles.stepCard}>
-                  <View style={styles.stepHeader}>
-                    <View style={[styles.stepIcon, { backgroundColor: definition.tone }]}>
-                      <AppIcon name={definition.icon} size={22} color={Palette.forest} />
-                    </View>
-                    <View style={styles.stepCopy}>
-                      <AppText variant="label" color={Palette.muted}>Schritt {String(index + 1).padStart(2, '0')}</AppText>
-                      <AppText variant="bodyStrong">{definition.title}</AppText>
-                      <AppText variant="small" color={Palette.inkSoft}>{definition.description}</AppText>
-                    </View>
-                    <Pill tone={step.text.trim() ? 'mint' : 'neutral'}>{step.text.trim() ? 'Gefüllt' : 'Leer'}</Pill>
-                  </View>
-                  <Field label="Überschrift" value={step.title} onChangeText={(value) => updateStep(step.position, { title: value })} />
-                  <Field label="Inhalt / Aufgabe" multiline placeholder="Text für diesen Lernschritt" value={step.text} onChangeText={(text) => updateStep(step.position, { text })} />
-                </Card>
-              );
-            })}
-          </View>
+          <SectionHeader title="Lektionsablauf" description="Drei aufeinanderfolgende Phasen" />
+          <Card style={styles.stepCard}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepIcon, { backgroundColor: Palette.sunSoft }]}>
+                <AppIcon name="play" size={22} color={Palette.forest} />
+              </View>
+              <View style={styles.stepCopy}>
+                <AppText variant="label" color={Palette.muted}>Schritt 01</AppText>
+                <AppText variant="bodyStrong">Einstiegstext</AppText>
+                <AppText variant="small" color={Palette.inkSoft}>Bereitet die Kinder auf den Live-Unterricht vor.</AppText>
+              </View>
+              <Pill tone={introText.trim() ? 'mint' : 'neutral'}>{introText.trim() ? 'Gefüllt' : 'Leer'}</Pill>
+            </View>
+            <Field
+              label="Text vor der Vorlesung"
+              placeholder="Einführung, Leitfrage oder kurze Geschichte …"
+              multiline
+              value={introText}
+              onChangeText={setIntroText}
+            />
+          </Card>
+
+          <Card style={styles.stepCard}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepIcon, { backgroundColor: Palette.skySoft }]}>
+                <AppIcon name="video" size={22} color={Palette.forest} />
+              </View>
+              <View style={styles.stepCopy}>
+                <AppText variant="label" color={Palette.muted}>Schritt 02</AppText>
+                <AppText variant="bodyStrong">Live-Vorlesung über Zoom</AppText>
+                <AppText variant="small" color={Palette.inkSoft}>Termin, Kursgruppe und Zugang werden zeitlich geplant.</AppText>
+              </View>
+              <Pill tone={hasLiveSession ? 'sky' : 'neutral'}>{hasLiveSession ? 'Geplant' : 'Offen'}</Pill>
+            </View>
+            <View style={styles.formStack}>
+              <ChoiceChips
+                label="Live-Termin"
+                value={hasLiveSession ? 'yes' : 'no'}
+                onChange={(value) => setHasLiveSession(value === 'yes')}
+                options={[{ value: 'no', label: 'Noch kein Termin' }, { value: 'yes', label: 'Termin eintragen' }]}
+              />
+              {hasLiveSession && (
+                <>
+                  <Field label="Bezeichnung" placeholder={title || 'Live-Unterricht'} value={liveTitle} onChangeText={setLiveTitle} />
+                  <ChoiceChips
+                    label="Gruppe (optional)"
+                    value={liveGroupId}
+                    allowEmpty
+                    onChange={setLiveGroupId}
+                    options={data.groups.map((group) => ({ value: group.id, label: group.name }))}
+                  />
+                  <Field label="Beginn" placeholder="2026-09-10T17:00" value={liveStartsAt} onChangeText={setLiveStartsAt} />
+                  <Field label="Ende" placeholder="2026-09-10T17:45" value={liveEndsAt} onChangeText={setLiveEndsAt} />
+                  <Field label="Zoom-Zugang" placeholder="https://zoom.us/…" value={meetingUrl} onChangeText={setMeetingUrl} autoCapitalize="none" />
+                </>
+              )}
+            </View>
+          </Card>
+
+          <Card style={styles.stepCard}>
+            <View style={styles.stepHeader}>
+              <View style={[styles.stepIcon, { backgroundColor: Palette.mint }]}>
+                <AppIcon name="check" size={22} color={Palette.forest} />
+              </View>
+              <View style={styles.stepCopy}>
+                <AppText variant="label" color={Palette.muted}>Schritt 03</AppText>
+                <AppText variant="bodyStrong">Multiple-Choice-Quiz</AppText>
+                <AppText variant="small" color={Palette.inkSoft}>Öffnet für Kinder auf einer eigenen Seite.</AppText>
+              </View>
+              <Pill tone={existingQuiz?.is_published ? 'mint' : existingQuiz ? 'sun' : 'neutral'}>
+                {existingQuiz?.is_published ? `${quizQuestionCount} Fragen · veröffentlicht` : existingQuiz ? `${quizQuestionCount} Fragen · Entwurf` : 'Noch nicht angelegt'}
+              </Pill>
+            </View>
+            {initialLesson ? (
+              <ActionButton
+                label={existingQuiz ? 'Quiz bearbeiten' : 'Quiz anlegen'}
+                icon="arrow"
+                variant="secondary"
+                onPress={() => router.push(`/quiz-bearbeiten?lessonId=${initialLesson.id}` as Href)}
+              />
+            ) : (
+              <AppText color={Palette.inkSoft}>Speichere zuerst die Lektion. Anschließend kannst du die Quizfragen anlegen.</AppText>
+            )}
+          </Card>
         </View>
 
         <View style={styles.sideColumn}>
@@ -264,32 +292,6 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
             <Field label="Replay-URL" placeholder="https://…" value={replayUrl} onChangeText={setReplayUrl} autoCapitalize="none" />
           </Card>
 
-          <Card>
-            <SectionHeader title="Live-Unterricht" />
-            <View style={styles.formStack}>
-              <ChoiceChips
-                label="Live-Termin"
-                value={hasLiveSession ? 'yes' : 'no'}
-                onChange={(value) => setHasLiveSession(value === 'yes')}
-                options={[{ value: 'no', label: 'Kein Termin' }, { value: 'yes', label: 'Termin eintragen' }]}
-              />
-              {hasLiveSession && (
-                <>
-                  <Field label="Bezeichnung" placeholder={title || 'Live-Unterricht'} value={liveTitle} onChangeText={setLiveTitle} />
-                  <ChoiceChips
-                    label="Gruppe (optional)"
-                    value={liveGroupId}
-                    allowEmpty
-                    onChange={setLiveGroupId}
-                    options={data.groups.map((group) => ({ value: group.id, label: group.name }))}
-                  />
-                  <Field label="Beginn" placeholder="2026-09-10T17:00" value={liveStartsAt} onChangeText={setLiveStartsAt} />
-                  <Field label="Ende" placeholder="2026-09-10T18:00" value={liveEndsAt} onChangeText={setLiveEndsAt} />
-                  <Field label="Zoom-Zugang" placeholder="https://zoom.us/…" value={meetingUrl} onChangeText={setMeetingUrl} autoCapitalize="none" />
-                </>
-              )}
-            </View>
-          </Card>
         </View>
       </View>
     </PageScaffold>
@@ -304,7 +306,6 @@ const styles = StyleSheet.create({
   mainColumn: { flex: 1.45, minWidth: 0, gap: Space.xl },
   sideColumn: { flex: 0.7, minWidth: 300, gap: Space.lg },
   formStack: { gap: Space.lg, marginTop: Space.xl },
-  stepsList: { gap: Space.md },
   stepCard: { gap: Space.lg, padding: Space.lg },
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
   stepIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },

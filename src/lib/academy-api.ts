@@ -9,6 +9,8 @@ import {
   LessonEditorInput,
   MediaAssetRow,
   MediaType,
+  QuizEditorInput,
+  QuizSubmissionResult,
   emptyDatabaseData,
 } from '@/types/database';
 import { supabase } from '@/lib/supabase';
@@ -76,6 +78,12 @@ export async function loadAcademyData(): Promise<AcademyData> {
     groups,
     groupMembers,
     liveSessions,
+    quizzes,
+    quizQuestions,
+    quizOptions,
+    quizAnswerKeys,
+    quizAttempts,
+    quizAttemptAnswers,
     lessonProgress,
     stepProgress,
     submissions,
@@ -94,6 +102,12 @@ export async function loadAcademyData(): Promise<AcademyData> {
     selectTable<AcademyData['groups'][number]>('groups', 'name'),
     selectTable<AcademyData['groupMembers'][number]>('group_members', 'created_at'),
     selectTable<AcademyData['liveSessions'][number]>('live_sessions', 'starts_at'),
+    selectTable<AcademyData['quizzes'][number]>('lesson_quizzes', 'created_at'),
+    selectTable<AcademyData['quizQuestions'][number]>('quiz_questions', 'position'),
+    selectTable<AcademyData['quizOptions'][number]>('quiz_options', 'position'),
+    selectTable<AcademyData['quizAnswerKeys'][number]>('quiz_answer_keys', 'created_at'),
+    selectTable<AcademyData['quizAttempts'][number]>('quiz_attempts', 'submitted_at', false),
+    selectTable<AcademyData['quizAttemptAnswers'][number]>('quiz_attempt_answers', 'created_at'),
     selectTable<AcademyData['lessonProgress'][number]>('child_lesson_progress', 'created_at'),
     selectTable<AcademyData['stepProgress'][number]>('child_step_progress', 'created_at'),
     selectTable<AcademyData['submissions'][number]>('submissions', 'submitted_at', false),
@@ -114,6 +128,12 @@ export async function loadAcademyData(): Promise<AcademyData> {
     groups,
     groupMembers,
     liveSessions,
+    quizzes,
+    quizQuestions,
+    quizOptions,
+    quizAnswerKeys,
+    quizAttempts,
+    quizAttemptAnswers,
     lessonProgress,
     stepProgress,
     submissions,
@@ -171,6 +191,7 @@ export async function saveLesson(input: LessonEditorInput) {
     learning_journey_id: input.learningJourneyId,
     title: input.title.trim(),
     description: input.description?.trim() || null,
+    intro_text: input.introText.trim(),
     status: input.status,
     position: input.position,
     publish_at: input.publishAt || null,
@@ -180,19 +201,6 @@ export async function saveLesson(input: LessonEditorInput) {
   const lesson = input.id
     ? await updateRecord('lessons', input.id, lessonValues)
     : await createRecord('lessons', lessonValues);
-
-  const stepRows = input.steps.map((step) => ({
-    lesson_id: lesson.id,
-    step_type: step.stepType,
-    title: step.title?.trim() || null,
-    content: { text: step.text?.trim() || '' },
-    position: step.position,
-  }));
-
-  const { error: stepError } = await client()
-    .from('lesson_steps')
-    .upsert(stepRows, { onConflict: 'lesson_id,position' });
-  fail(stepError);
 
   if (input.liveSession) {
     const sessionValues = {
@@ -213,6 +221,45 @@ export async function saveLesson(input: LessonEditorInput) {
   }
 
   return lesson;
+}
+
+export async function saveMultipleChoiceQuiz(input: QuizEditorInput) {
+  const { data, error } = await client().rpc('save_multiple_choice_quiz', {
+    target_lesson_id: input.lessonId,
+    quiz_title: input.title.trim(),
+    quiz_description: input.description?.trim() || '',
+    required_passing_percent: input.passingPercent,
+    publish_quiz: input.isPublished,
+    question_definitions: input.questions.map((question) => ({
+      question_text: question.questionText.trim(),
+      explanation: question.explanation?.trim() || '',
+      options: question.options.map((option) => ({
+        option_text: option.optionText.trim(),
+        is_correct: option.isCorrect,
+      })),
+    })),
+  });
+  fail(error);
+  return Number(data);
+}
+
+export async function submitMultipleChoiceQuiz(
+  childId: number,
+  quizId: number,
+  answers: { questionId: number; optionId: number }[]
+) {
+  const { data, error } = await client().rpc('submit_multiple_choice_quiz', {
+    target_child_id: childId,
+    target_quiz_id: quizId,
+    submitted_answers: answers.map((answer) => ({
+      question_id: answer.questionId,
+      option_id: answer.optionId,
+    })),
+  });
+  fail(error);
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result) throw new AcademyApiError('Das Quiz-Ergebnis konnte nicht gespeichert werden.');
+  return result as QuizSubmissionResult;
 }
 
 async function refreshLessonProgress(childId: number, lessonId: number) {

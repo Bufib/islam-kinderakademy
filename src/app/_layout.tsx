@@ -66,6 +66,7 @@ function RootNavigator() {
               <Stack.Screen name="lernreisen" />
               <Stack.Screen name="islam-pass" />
               <Stack.Screen name="lektion/[id]" />
+              <Stack.Screen name="quiz/[lessonId]" />
             </Stack.Protected>
 
             <Stack.Protected guard={activeRole === 'parent'}>
@@ -76,6 +77,7 @@ function RootNavigator() {
               <Stack.Screen name="curriculum" />
               <Stack.Screen name="lektionen" />
               <Stack.Screen name="lektion-neu" />
+              <Stack.Screen name="quiz-bearbeiten" />
               <Stack.Screen name="gruppen" />
               <Stack.Screen name="medien" />
               <Stack.Screen name="abzeichen" />

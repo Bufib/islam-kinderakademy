@@ -32,13 +32,23 @@ export function ParentDashboard() {
     .filter((session) => new Date(session.ends_at).getTime() >= openedAt && session.status !== 'cancelled')
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const nextSession = upcomingSessions[0];
-  const openConfirmations = data.lessonSteps.filter(
-    (step) =>
-      step.step_type === 'challenge' &&
-      !data.submissions.some(
-        (submission) => submission.lesson_step_id === step.id
+  const openQuizzes = data.children.reduce((count, child) => {
+    const journeyIds = data.journeys
+      .filter((journey) => journey.age_group === child.age_group && journey.is_published)
+      .map((journey) => journey.id);
+    const lessonIds = data.lessons
+      .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
+      .map((lesson) => lesson.id);
+    const childQuizzes = data.quizzes.filter(
+      (quiz) => quiz.is_published && lessonIds.includes(quiz.lesson_id)
+    );
+    return count + childQuizzes.filter(
+      (quiz) => !data.quizAttempts.some(
+        (attempt) => attempt.child_id === child.id && attempt.quiz_id === quiz.id && attempt.passed
       )
-  ).length;
+    ).length;
+  }, 0);
+  const recentAttempts = data.quizAttempts.slice(0, 5);
 
   function openChild(childId: number) {
     enterChildArea(childId);
@@ -55,7 +65,7 @@ export function ParentDashboard() {
       <View style={styles.statsGrid}>
         <StatCard icon="children" value={String(data.children.length)} label="Kinderprofile" tone="mint" />
         <StatCard icon="calendar" value={String(upcomingSessions.length)} label="Anstehende Termine" tone="sky" />
-        <StatCard icon="check" value={String(openConfirmations)} label="Offene Challenges" tone="sun" />
+        <StatCard icon="check" value={String(openQuizzes)} label="Offene Quizze" tone="sun" />
       </View>
 
       <View style={[styles.mainGrid, compact && styles.column]}>
@@ -104,23 +114,28 @@ export function ParentDashboard() {
       </View>
 
       <Card>
-        <SectionHeader title="Aktuelle Wochenaufgaben" description="Challenges und Abgaben" />
-        {data.lessonSteps.filter((step) => step.step_type === 'challenge').length === 0 ? (
+        <SectionHeader title="Aktuelle Quiz-Ergebnisse" description="Die letzten abgeschlossenen Lernkontrollen" />
+        {recentAttempts.length === 0 ? (
           <View style={styles.inlineEmpty}>
             <View style={styles.inlineIcon}><AppIcon name="check" size={24} color={Palette.forest} /></View>
-            <View style={styles.inlineCopy}><AppText variant="bodyStrong">Keine offenen Aufgaben</AppText><AppText color={Palette.inkSoft}>Veröffentlichte Challenges erscheinen hier.</AppText></View>
+            <View style={styles.inlineCopy}><AppText variant="bodyStrong">Noch keine Ergebnisse</AppText><AppText color={Palette.inkSoft}>Abgeschlossene Multiple-Choice-Quizze erscheinen hier.</AppText></View>
           </View>
         ) : (
           <View style={styles.challengeList}>
-            {data.lessonSteps.filter((step) => step.step_type === 'challenge').slice(0, 5).map((step) => (
-              <View key={step.id} style={styles.challengeRow}>
-                <AppIcon name="trophy" size={20} color="#934E39" />
-                <View style={styles.inlineCopy}>
-                  <AppText variant="bodyStrong">{step.title || 'Wochen-Challenge'}</AppText>
-                  <AppText variant="small" color={Palette.muted}>{data.lessons.find((lesson) => lesson.id === step.lesson_id)?.title}</AppText>
+            {recentAttempts.map((attempt) => {
+              const child = data.children.find((entry) => entry.id === attempt.child_id);
+              const quiz = data.quizzes.find((entry) => entry.id === attempt.quiz_id);
+              return (
+                <View key={attempt.id} style={styles.challengeRow}>
+                  <AppIcon name={attempt.passed ? 'trophy' : 'refresh'} size={20} color={attempt.passed ? '#934E39' : Palette.forest} />
+                  <View style={styles.inlineCopy}>
+                    <AppText variant="bodyStrong">{child?.display_name ?? 'Kinderprofil'} · {attempt.score_percent} %</AppText>
+                    <AppText variant="small" color={Palette.muted}>{quiz?.title ?? 'Multiple-Choice-Quiz'}</AppText>
+                  </View>
+                  <Pill tone={attempt.passed ? 'mint' : 'sun'}>{attempt.passed ? 'Bestanden' : 'Weiter üben'}</Pill>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </Card>
