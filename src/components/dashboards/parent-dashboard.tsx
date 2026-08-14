@@ -1,5 +1,6 @@
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -23,18 +24,19 @@ import { formatDateTime } from '@/utils/format';
 export function ParentDashboard() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const [openedAt] = useState(() => Date.now());
   const compact = width < Layout.compactBreakpoint;
   const { enterChildArea } = useAcademy();
   const { data, isLoading, error, refresh } = useAcademyData();
   const upcomingSessions = data.liveSessions
-    .filter((session) => new Date(session.ends_at).getTime() >= Date.now() && session.status !== 'cancelled')
+    .filter((session) => new Date(session.ends_at).getTime() >= openedAt && session.status !== 'cancelled')
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const nextSession = upcomingSessions[0];
   const openConfirmations = data.lessonSteps.filter(
     (step) =>
       step.step_type === 'challenge' &&
       !data.submissions.some(
-        (submission) => submission.lesson_step_id === step.id && submission.submission_type === 'confirmation'
+        (submission) => submission.lesson_step_id === step.id
       )
   ).length;
 

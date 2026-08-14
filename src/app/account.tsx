@@ -2,10 +2,15 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
-import { ActionButton, AppText, Card, PageScaffold, Pill } from '@/components/ui/primitives';
+import { ErrorBanner, FormDialog } from '@/components/ui/data-ui';
+import { ActionButton, AppText, Card, Field, PageScaffold, Pill } from '@/components/ui/primitives';
 import { Palette, Radius, Space } from '@/constants/design';
+import { useAcademyData } from '@/context/academy-data-context';
 import { AccountRole, useAuth } from '@/context/auth-context';
+import { updateRecord } from '@/lib/academy-api';
+import { supabase } from '@/lib/supabase';
 import { translateAuthError } from '@/utils/auth-errors';
+import { apiErrorMessage } from '@/utils/format';
 
 const roleLabels: Record<AccountRole, string> = {
   parent: 'Elternkonto',
@@ -14,9 +19,17 @@ const roleLabels: Record<AccountRole, string> = {
 };
 
 export default function AccountScreen() {
-  const { user, profile, signOut, isProfileLoading } = useAuth();
+  const { user, profile, signOut, isProfileLoading, refreshProfile } = useAuth();
+  const { execute } = useAcademyData();
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+  const [profileDialog, setProfileDialog] = useState(false);
+  const [passwordDialog, setPasswordDialog] = useState(false);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [passwordRepeat, setPasswordRepeat] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const displayName = profile?.displayName || user?.email?.split('@')[0] || 'Mein Konto';
   const initials = displayName
@@ -32,6 +45,68 @@ export default function AccountScreen() {
     setSigningOut(false);
 
     if (result.error) setError(translateAuthError(result.error));
+  }
+
+  function openProfileDialog() {
+    setName(displayName);
+    setFormError(null);
+    setProfileDialog(true);
+  }
+
+  function openPasswordDialog() {
+    setPassword('');
+    setPasswordRepeat('');
+    setFormError(null);
+    setPasswordDialog(true);
+  }
+
+  async function saveProfile() {
+    const client = supabase;
+    if (!profile?.id || !name.trim() || !client) {
+      setFormError('Das Profil ist noch nicht vollständig geladen oder der Name fehlt.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      await execute(async () => {
+        const { error: authError } = await client.auth.updateUser({ data: { display_name: name.trim() } });
+        if (authError) throw authError;
+        await updateRecord('profiles', profile.id!, { display_name: name.trim() });
+      });
+      await refreshProfile();
+      setProfileDialog(false);
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function savePassword() {
+    if (password.length < 8) {
+      setFormError('Das neue Passwort muss mindestens 8 Zeichen lang sein.');
+      return;
+    }
+    if (password !== passwordRepeat) {
+      setFormError('Die beiden Passwörter stimmen nicht überein.');
+      return;
+    }
+    if (!supabase) {
+      setFormError('Supabase ist noch nicht konfiguriert.');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const { error: authError } = await supabase.auth.updateUser({ password });
+      if (authError) throw authError;
+      setPasswordDialog(false);
+    } catch (reason) {
+      setFormError(translateAuthError(reason instanceof Error ? reason.message : String(reason)));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -67,6 +142,10 @@ export default function AccountScreen() {
               value={user ? 'Angemeldet' : 'Nicht angemeldet'}
             />
           </View>
+          <View style={styles.profileActions}>
+            <ActionButton label="Profil bearbeiten" icon="edit" variant="secondary" onPress={openProfileDialog} />
+            <ActionButton label="Passwort ändern" icon="lock" variant="secondary" onPress={openPasswordDialog} />
+          </View>
         </Card>
 
         <Card style={styles.securityCard}>
@@ -94,6 +173,31 @@ export default function AccountScreen() {
           />
         </Card>
       </View>
+
+      <FormDialog
+        visible={profileDialog}
+        title="Profil bearbeiten"
+        description="Der Anzeigename wird im Konto und im Akademiebereich verwendet."
+        saving={saving}
+        onClose={() => setProfileDialog(false)}
+        onSave={() => void saveProfile()}>
+        {formError && <ErrorBanner message={formError} />}
+        <Field label="Anzeigename" value={name} onChangeText={setName} placeholder="Dein Name" />
+        <Field label="E-Mail-Adresse" value={user?.email ?? ''} editable={false} helper="Die E-Mail-Adresse kann hier nicht geändert werden." />
+      </FormDialog>
+
+      <FormDialog
+        visible={passwordDialog}
+        title="Passwort ändern"
+        description="Das neue Passwort gilt sofort für die nächste Anmeldung."
+        saveLabel="Passwort speichern"
+        saving={saving}
+        onClose={() => setPasswordDialog(false)}
+        onSave={() => void savePassword()}>
+        {formError && <ErrorBanner message={formError} />}
+        <Field label="Neues Passwort" value={password} onChangeText={setPassword} secureTextEntry placeholder="Mindestens 8 Zeichen" />
+        <Field label="Passwort wiederholen" value={passwordRepeat} onChangeText={setPasswordRepeat} secureTextEntry placeholder="Erneut eingeben" />
+      </FormDialog>
     </PageScaffold>
   );
 }
@@ -140,6 +244,7 @@ const styles = StyleSheet.create({
   profileCopy: { flex: 1, minWidth: 170, gap: 3 },
   divider: { height: 1, backgroundColor: Palette.line, marginVertical: Space.xl },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },
+  profileActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm, marginTop: Space.xl },
   detail: {
     flex: 1,
     minWidth: 180,

@@ -21,7 +21,7 @@ import {
   SegmentedControl,
   SectionHeader,
 } from '@/components/ui/primitives';
-import { Palette, Radius, Space } from '@/constants/design';
+import { Palette, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
 import { AcademyYearRow, AgeGroup, LearningJourneyRow } from '@/types/database';

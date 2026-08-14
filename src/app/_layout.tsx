@@ -6,7 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppShell } from '@/components/app-shell';
 import { BrandMark } from '@/components/brand-mark';
 import { Palette } from '@/constants/design';
-import { AcademyProvider } from '@/context/academy-context';
+import { AcademyProvider, useAcademy } from '@/context/academy-context';
 import { AcademyDataProvider } from '@/context/academy-data-context';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 
@@ -25,9 +25,10 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isAuthenticated, isInitializing } = useAuth();
+  const { isAuthenticated, isInitializing, isProfileLoading } = useAuth();
+  const { activeRole } = useAcademy();
 
-  if (isInitializing) {
+  if (isInitializing || (isAuthenticated && isProfileLoading)) {
     return (
       <View style={styles.loadingScreen}>
         <BrandMark />
@@ -51,22 +52,34 @@ function RootNavigator() {
           <Stack.Protected guard={!isAuthenticated}>
             <Stack.Screen name="login" />
             <Stack.Screen name="register" />
+            <Stack.Screen name="passwort-vergessen" />
           </Stack.Protected>
 
           <Stack.Protected guard={isAuthenticated}>
             <Stack.Screen name="dashboard" />
-            <Stack.Screen name="lernreisen" />
             <Stack.Screen name="kalender" />
-            <Stack.Screen name="islam-pass" />
-            <Stack.Screen name="kinder" />
             <Stack.Screen name="mitteilungen" />
-            <Stack.Screen name="curriculum" />
-            <Stack.Screen name="lektionen" />
-            <Stack.Screen name="lektion-neu" />
-            <Stack.Screen name="gruppen" />
-            <Stack.Screen name="medien" />
-            <Stack.Screen name="abzeichen" />
             <Stack.Screen name="account" />
+
+            <Stack.Protected guard={activeRole === 'child'}>
+              <Stack.Screen name="lernreisen" />
+              <Stack.Screen name="islam-pass" />
+              <Stack.Screen name="lektion/[id]" />
+            </Stack.Protected>
+
+            <Stack.Protected guard={activeRole === 'parent'}>
+              <Stack.Screen name="kinder" />
+            </Stack.Protected>
+
+            <Stack.Protected guard={activeRole === 'team'}>
+              <Stack.Screen name="curriculum" />
+              <Stack.Screen name="lektionen" />
+              <Stack.Screen name="lektion-neu" />
+              <Stack.Screen name="gruppen" />
+              <Stack.Screen name="medien" />
+              <Stack.Screen name="abzeichen" />
+              <Stack.Screen name="abgaben" />
+            </Stack.Protected>
           </Stack.Protected>
         </Stack>
       </AppShell>

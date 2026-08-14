@@ -25,7 +25,7 @@ import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
 import { useAuth } from '@/context/auth-context';
-import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
+import { createRecord, deleteRecord, ensureCurrentProfileId, updateRecord } from '@/lib/academy-api';
 import { AgeGroup, ChildRow } from '@/types/database';
 import { apiErrorMessage } from '@/utils/format';
 import { confirmAction } from '@/utils/feedback';
@@ -42,7 +42,7 @@ export default function ChildrenScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
-  const { profile } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const { enterChildArea } = useAcademy();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,10 +70,6 @@ export default function ChildrenScreen() {
   }
 
   async function save() {
-    if (!profile?.id) {
-      setFormError('Dein Supabase-Profil wurde noch nicht vollständig geladen.');
-      return;
-    }
     if (!form.displayName.trim()) {
       setFormError('Bitte gib einen Anzeigenamen ein.');
       return;
@@ -82,8 +78,15 @@ export default function ChildrenScreen() {
     setSaving(true);
     setFormError(null);
     try {
+      let parentProfileId =
+        profile?.id ?? data.profiles.find((entry) => entry.auth_user_id === user?.id)?.id ?? null;
+      if (!parentProfileId) {
+        parentProfileId = await ensureCurrentProfileId();
+        await refreshProfile();
+      }
+
       const values = {
-        parent_profile_id: profile.id,
+        parent_profile_id: parentProfileId,
         display_name: form.displayName.trim(),
         birth_date: form.birthDate || null,
         age_group: form.ageGroup,

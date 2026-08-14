@@ -40,6 +40,7 @@ type AuthContextValue = {
   isConfigured: boolean;
   signIn: (email: string, password: string) => Promise<AuthActionResult>;
   signUp: (displayName: string, email: string, password: string) => Promise<SignUpResult>;
+  requestPasswordReset: (email: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
   refreshProfile: () => Promise<void>;
 };
@@ -74,12 +75,12 @@ function resolveRole(roles: unknown[]): AccountRole {
   return 'parent';
 }
 
-function authRedirectUrl() {
+function authRedirectUrl(path = '/login') {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/login`;
+    return `${window.location.origin}${path}`;
   }
 
-  return Linking.createURL('/login');
+  return Linking.createURL(path);
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -98,6 +99,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const fallback = fallbackProfile(user);
 
     try {
+      // Repariert auch ältere Auth-Konten, die vor dem Profil-Trigger angelegt wurden.
+      // Die Funktion verwendet ausschließlich auth.uid() und kann kein fremdes Profil erzeugen.
+      await supabase.rpc('ensure_current_profile');
+
       const { data: profileRow, error: profileError } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
@@ -207,6 +212,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { error: error?.message ?? null };
   }, []);
 
+  const requestPasswordReset = useCallback(async (email: string): Promise<AuthActionResult> => {
+    if (!supabase) return { error: 'Supabase ist noch nicht konfiguriert.' };
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: authRedirectUrl('/account'),
+    });
+    return { error: error?.message ?? null };
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     await loadProfile(session?.user ?? null);
   }, [loadProfile, session?.user]);
@@ -222,6 +236,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isConfigured: isSupabaseConfigured,
       signIn,
       signUp,
+      requestPasswordReset,
       signOut,
       refreshProfile,
     }),
@@ -230,6 +245,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isProfileLoading,
       profile,
       refreshProfile,
+      requestPasswordReset,
       session,
       signIn,
       signOut,

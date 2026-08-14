@@ -86,6 +86,12 @@ export default function LoginScreen() {
           returnKeyType="done"
           onSubmitEditing={() => void submit()}
         />
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => router.push('/passwort-vergessen' as Href)}
+          style={({ pressed }) => [styles.resetLink, pressed && styles.pressed]}>
+          <AppText variant="small" color={Palette.forest}>Passwort vergessen?</AppText>
+        </Pressable>
         <ActionButton
           label={submitting ? 'Wird angemeldet …' : 'Anmelden'}
           icon="arrow"
@@ -102,5 +108,6 @@ const styles = StyleSheet.create({
   form: { gap: Space.lg },
   submitButton: { width: '100%', marginTop: Space.sm },
   footerRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  resetLink: { alignSelf: 'flex-end' },
   pressed: { opacity: 0.7 },
 });

@@ -16,6 +16,7 @@ const quickActions: { label: string; description: string; icon: AppIconName; hre
   { label: 'Mitteilungen', description: 'Familien informieren', icon: 'messages', href: '/mitteilungen' },
   { label: 'Medien', description: 'Dateien bereitstellen', icon: 'media', href: '/medien' },
   { label: 'Abzeichen', description: 'Lernziele verleihen', icon: 'trophy', href: '/abzeichen' },
+  { label: 'Abgaben', description: 'Antworten einsehen', icon: 'check', href: '/abgaben' },
 ];
 
 export function TeamDashboard() {

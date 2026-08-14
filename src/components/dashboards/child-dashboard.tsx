@@ -1,0 +1,273 @@
+import * as Linking from 'expo-linking';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+
+import { AppIcon } from '@/components/ui/app-icon';
+import { DataLoading, ErrorBanner } from '@/components/ui/data-ui';
+import {
+  ActionButton,
+  AppText,
+  Card,
+  EmptyState,
+  PageScaffold,
+  Pill,
+  ProgressBar,
+  SectionHeader,
+  StatCard,
+} from '@/components/ui/primitives';
+import { Layout, Palette, Space } from '@/constants/design';
+import { useAcademy } from '@/context/academy-context';
+import { useAcademyData } from '@/context/academy-data-context';
+import { formatDateTime } from '@/utils/format';
+
+export function ChildDashboard() {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const [openedAt] = useState(() => Date.now());
+  const compact = width < Layout.compactBreakpoint;
+  const stacked = width < 1080;
+  const { selectedChildId, exitChildArea } = useAcademy();
+  const { data, isLoading, error, refresh } = useAcademyData();
+  const child = data.children.find((entry) => entry.id === selectedChildId);
+
+  if (isLoading && !child) return <DataLoading label="Kinderbereich wird geladen …" />;
+
+  if (!child) {
+    return (
+      <PageScaffold eyebrow="Kinderansicht" title="Kein Kinderprofil ausgewählt">
+        <Card>
+          <EmptyState
+            icon="children"
+            title="Kinderbereich auswählen"
+            description="Öffne zuerst ein Kinderprofil aus dem Elternbereich."
+            actionLabel="Zum Elternbereich"
+            onAction={() => {
+              exitChildArea();
+              router.replace('/kinder');
+            }}
+          />
+        </Card>
+      </PageScaffold>
+    );
+  }
+
+  const activeYearIds = data.academyYears.filter((year) => year.is_active).map((year) => year.id);
+  const journeys = data.journeys
+    .filter(
+      (journey) =>
+        journey.age_group === child.age_group &&
+        journey.is_published &&
+        activeYearIds.includes(journey.academy_year_id)
+    )
+    .sort((a, b) => a.position - b.position);
+  const journeyIds = journeys.map((journey) => journey.id);
+  const lessons = data.lessons
+    .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
+    .sort((a, b) => {
+      const journeyA = journeys.find((journey) => journey.id === a.learning_journey_id)?.position ?? 0;
+      const journeyB = journeys.find((journey) => journey.id === b.learning_journey_id)?.position ?? 0;
+      return journeyA - journeyB || a.position - b.position;
+    });
+  const progressRows = data.lessonProgress.filter((row) => row.child_id === child.id);
+  const completedLessons = progressRows.filter((row) => row.status === 'completed').length;
+  const nextLesson =
+    lessons.find(
+      (lesson) => progressRows.find((row) => row.lesson_id === lesson.id)?.status !== 'completed'
+    ) ?? lessons.at(-1);
+  const nextProgress = progressRows.find((row) => row.lesson_id === nextLesson?.id)?.progress_percent ?? 0;
+  const nextSteps = data.lessonSteps.filter((step) => step.lesson_id === nextLesson?.id);
+  const completedStepIds = new Set(
+    data.stepProgress.filter((row) => row.child_id === child.id).map((row) => row.lesson_step_id)
+  );
+  const childGroupIds = data.groupMembers
+    .filter((member) => member.child_id === child.id)
+    .map((member) => member.group_id);
+  const nextSession = data.liveSessions
+    .filter(
+      (session) =>
+        session.status !== 'cancelled' &&
+        new Date(session.ends_at).getTime() >= openedAt &&
+        (session.group_id === null || childGroupIds.includes(session.group_id))
+    )
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0];
+  const challenge = nextSteps.find((step) => step.step_type === 'challenge');
+  const challengeDone = challenge
+    ? data.submissions.some(
+        (submission) => submission.child_id === child.id && submission.lesson_step_id === challenge.id
+      )
+    : false;
+
+  return (
+    <PageScaffold eyebrow="Mein Bereich" title={`Salam, ${child.display_name}!`}>
+      {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
+      <View style={[styles.heroGrid, stacked && styles.column]}>
+        <Card tone="dark" style={[styles.heroCard, stacked && styles.fullWidth]}>
+          <View style={styles.heroCopy}>
+            <Pill tone="sun" icon="journeys">Deine Lernwoche</Pill>
+            <View style={styles.heroText}>
+              <AppText variant={compact ? 'title' : 'display'} color={Palette.white}>
+                {nextLesson?.title ?? 'Deine nächste Entdeckung wartet hier.'}
+              </AppText>
+              <AppText color="#CDE0D7" style={styles.heroDescription}>
+                {nextLesson?.description ?? 'Sobald eine Lektion veröffentlicht ist, kannst du hier starten.'}
+              </AppText>
+            </View>
+            <View style={[styles.heroActions, compact && styles.actionsColumn]}>
+              <ActionButton
+                label={nextProgress > 0 ? 'Weiterlernen' : 'Lektion starten'}
+                icon={nextLesson ? 'play' : 'lock'}
+                disabled={!nextLesson}
+                onPress={() => nextLesson && router.push(`/lektion/${nextLesson.id}`)}
+                style={styles.heroButton}
+              />
+              <ActionButton
+                label="Lernreisen ansehen"
+                icon="arrow"
+                variant="secondary"
+                onPress={() => router.push('/lernreisen')}
+                style={styles.heroButton}
+              />
+            </View>
+          </View>
+          {!compact && <JourneyOrnament />}
+        </Card>
+
+        <Card style={[styles.weekCard, stacked && styles.fullWidth]}>
+          <View style={styles.weekCardHeader}>
+            <View style={styles.roundIconMint}>
+              <AppIcon name="check" size={23} color={Palette.forest} />
+            </View>
+            <Pill>{nextSteps.filter((step) => completedStepIds.has(step.id)).length} von {nextSteps.length || 5}</Pill>
+          </View>
+          <View style={styles.weekCopy}>
+            <AppText variant="heading">Mein Wochenweg</AppText>
+            <AppText color={Palette.inkSoft}>
+              {nextLesson ? `${nextProgress}% dieser Lektion geschafft.` : 'Noch keine Lektion veröffentlicht.'}
+            </AppText>
+          </View>
+          <ProgressBar value={nextProgress} />
+          <View style={styles.stepDots}>
+            {(nextSteps.length ? nextSteps : Array.from({ length: 5 }, (_, index) => ({ id: -index - 1 }))).map(
+              (step, index) => (
+                <View key={step.id} style={[styles.stepDot, completedStepIds.has(step.id) && styles.stepDotDone]}>
+                  {completedStepIds.has(step.id) ? (
+                    <AppIcon name="check" size={16} color={Palette.white} />
+                  ) : (
+                    <AppText variant="small" color={Palette.muted}>{index + 1}</AppText>
+                  )}
+                </View>
+              )
+            )}
+          </View>
+        </Card>
+      </View>
+
+      <SectionHeader title="Diese Woche" description="Alles Wichtige auf einen Blick." />
+      <View style={[styles.weekGrid, compact && styles.column]}>
+        <Card style={styles.infoCard}>
+          <View style={styles.infoCardTop}>
+            <View style={[styles.infoIcon, { backgroundColor: Palette.skySoft }]}>
+              <AppIcon name="video" size={23} color="#2E6474" />
+            </View>
+            <Pill tone="sky">Live-Unterricht</Pill>
+          </View>
+          <View style={styles.infoCardCopy}>
+            <AppText variant="heading">{nextSession?.title ?? 'Noch kein Termin'}</AppText>
+            <AppText color={Palette.inkSoft}>
+              {nextSession ? formatDateTime(nextSession.starts_at) : 'Der nächste Termin wird hier angezeigt.'}
+            </AppText>
+          </View>
+          <ActionButton
+            label={nextSession?.meeting_url ? 'Zoom öffnen' : 'Kalender ansehen'}
+            icon={nextSession?.meeting_url ? 'external' : 'calendar'}
+            variant="secondary"
+            onPress={() =>
+              nextSession?.meeting_url
+                ? void Linking.openURL(nextSession.meeting_url)
+                : router.push('/kalender')
+            }
+          />
+        </Card>
+
+        <Card style={styles.infoCard}>
+          <View style={styles.infoCardTop}>
+            <View style={[styles.infoIcon, { backgroundColor: Palette.coralSoft }]}>
+              <AppIcon name="trophy" size={23} color="#934E39" />
+            </View>
+            <Pill tone="coral">Wochen-Challenge</Pill>
+          </View>
+          <View style={styles.infoCardCopy}>
+            <AppText variant="heading">{challenge?.title ?? 'Noch keine Challenge'}</AppText>
+            <AppText color={Palette.inkSoft}>
+              {challenge ? (challengeDone ? 'Schon abgegeben – stark gemacht!' : 'Öffne die Lektion und erledige die Aufgabe.') : 'Die Aufgabe erscheint mit der Lektion.'}
+            </AppText>
+          </View>
+          <ActionButton
+            label={challengeDone ? 'Abgabe ansehen' : 'Zur Lektion'}
+            icon={nextLesson ? 'arrow' : 'clock'}
+            variant="secondary"
+            disabled={!nextLesson}
+            onPress={() => nextLesson && router.push(`/lektion/${nextLesson.id}`)}
+          />
+        </Card>
+      </View>
+
+      <SectionHeader title="Mein Fortschritt" description="Nur dein eigener Lernweg zählt." />
+      <View style={styles.statsGrid}>
+        <StatCard icon="lessons" value={String(completedLessons)} label="Lektionen" tone="mint" />
+        <StatCard icon="pass" value={String(data.childBadges.filter((row) => row.child_id === child.id).length)} label="Abzeichen" tone="sun" />
+        <StatCard icon="trophy" value={String(data.submissions.filter((row) => row.child_id === child.id).length)} label="Abgaben" tone="coral" />
+      </View>
+    </PageScaffold>
+  );
+}
+
+function JourneyOrnament() {
+  return (
+    <View style={styles.ornament} pointerEvents="none">
+      <View style={styles.orbitOuter} />
+      <View style={styles.orbitInner} />
+      <View style={[styles.orbitNode, styles.nodeOne]} />
+      <View style={[styles.orbitNode, styles.nodeTwo]} />
+      <View style={styles.ornamentCenter}><AppIcon name="journeys" size={37} color={Palette.ink} /></View>
+      <AppText color={Palette.sun} style={styles.sparkleOne}>✦</AppText>
+      <AppText color={Palette.mintStrong} style={styles.sparkleTwo}>✦</AppText>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  heroGrid: { width: '100%', minWidth: 0, flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
+  column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
+  heroCard: { minHeight: 330, flex: 1.72, flexDirection: 'row', position: 'relative', padding: Space.xxl },
+  heroCopy: { flex: 1, minWidth: 0, maxWidth: 610, zIndex: 1 },
+  heroText: { gap: Space.md, marginTop: Space.xl, marginBottom: Space.xl },
+  heroDescription: { maxWidth: 490 },
+  heroActions: { flexDirection: 'row', gap: Space.sm, alignItems: 'center' },
+  actionsColumn: { alignItems: 'stretch', flexDirection: 'column' },
+  heroButton: { minWidth: 178 },
+  ornament: { width: 230, height: 230, alignSelf: 'center', marginRight: -22 },
+  orbitOuter: { position: 'absolute', width: 218, height: 218, borderRadius: 109, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(167,213,190,0.5)' },
+  orbitInner: { position: 'absolute', left: 38, top: 38, width: 142, height: 142, borderRadius: 71, borderWidth: 1, borderColor: 'rgba(242,201,109,0.42)' },
+  ornamentCenter: { position: 'absolute', left: 75, top: 75, width: 72, height: 72, borderRadius: 25, backgroundColor: Palette.sun, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-6deg' }] },
+  orbitNode: { position: 'absolute', width: 18, height: 18, borderRadius: 9, backgroundColor: Palette.coral, borderWidth: 4, borderColor: Palette.forestDark },
+  nodeOne: { right: 14, top: 60 },
+  nodeTwo: { left: 25, bottom: 35, backgroundColor: Palette.sky },
+  sparkleOne: { position: 'absolute', right: 31, bottom: 25, fontSize: 21 },
+  sparkleTwo: { position: 'absolute', left: 36, top: 23, fontSize: 15 },
+  weekCard: { flex: 0.85, minWidth: 280, minHeight: 330, justifyContent: 'space-between' },
+  weekCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  roundIconMint: { width: 48, height: 48, borderRadius: 17, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
+  weekCopy: { gap: 6, marginVertical: Space.lg },
+  stepDots: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Space.lg },
+  stepDot: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: Palette.line, backgroundColor: '#F2F4F2', alignItems: 'center', justifyContent: 'center' },
+  stepDotDone: { backgroundColor: Palette.forest, borderColor: Palette.forest },
+  weekGrid: { flexDirection: 'row', gap: Space.lg },
+  infoCard: { flex: 1, minWidth: 270, minHeight: 270 },
+  infoCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Space.md },
+  infoIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  infoCardCopy: { flex: 1, justifyContent: 'center', gap: Space.sm, paddingVertical: Space.xl },
+  statsGrid: { flexDirection: 'row', gap: Space.lg, flexWrap: 'wrap' },
+});

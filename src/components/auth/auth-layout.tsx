@@ -42,7 +42,7 @@ export function AuthLayout({
         contentContainerStyle={styles.pageContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, compact && styles.headerCompact]}>
           <Pressable accessibilityRole="link" onPress={() => router.push('/' as Href)}>
             <BrandMark />
           </Pressable>
@@ -57,7 +57,12 @@ export function AuthLayout({
           </Pressable>
         </View>
 
-        <View style={[styles.content, compact && styles.contentCompact]}>
+        <View
+          style={[
+            styles.content,
+            compact && styles.contentCompact,
+            compact && { width: Math.max(width - Space.lg * 2, 0) },
+          ]}>
           {!compact && (
             <View style={styles.storyPanel}>
               <View style={styles.storyShapeOne} />
@@ -79,7 +84,7 @@ export function AuthLayout({
           )}
 
           <View style={[styles.formColumn, compact && styles.formColumnCompact]}>
-            <View style={styles.formCard}>
+            <View style={[styles.formCard, compact && styles.formCardCompact]}>
               <View style={styles.formHeading}>
                 <AppText variant="label" color={Palette.forest}>
                   {eyebrow}
@@ -163,6 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerCompact: { paddingHorizontal: Space.lg, gap: Space.md },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 10 },
   backIcon: { transform: [{ rotate: '180deg' }] },
   content: {
@@ -177,7 +183,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Space.xxl,
   },
-  contentCompact: { justifyContent: 'center', paddingHorizontal: Space.lg },
+  contentCompact: { justifyContent: 'center', paddingHorizontal: 0 },
   storyPanel: {
     flex: 1,
     overflow: 'hidden',
@@ -228,8 +234,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   formColumn: { width: '44%', minWidth: 420, justifyContent: 'center' },
-  formColumnCompact: { width: '100%', minWidth: 0, maxWidth: 500 },
+  formColumnCompact: { width: '100%', minWidth: 0, maxWidth: '100%' },
   formCard: {
+    width: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
     borderRadius: 28,
     borderWidth: 1,
     borderColor: Palette.line,
@@ -240,9 +249,13 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
   },
-  formHeading: { gap: Space.md, marginBottom: Space.xl },
+  formCardCompact: { padding: Space.xl },
+  formHeading: { minWidth: 0, gap: Space.md, marginBottom: Space.xl },
   field: { gap: 7 },
   input: {
+    width: '100%',
+    minWidth: 0,
+    boxSizing: 'border-box',
     minHeight: 52,
     borderWidth: 1,
     borderColor: Palette.line,

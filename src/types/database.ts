@@ -261,12 +261,12 @@ export type LessonEditorInput = {
   position: number;
   publishAt?: string | null;
   replayUrl?: string | null;
-  steps: Array<{
+  steps: {
     stepType: LessonStepType;
     title?: string;
     text?: string;
     position: number;
-  }>;
+  }[];
   liveSession?: {
     id?: number;
     groupId?: number | null;

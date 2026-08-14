@@ -1,71 +1,125 @@
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
+import { DataLoading, ErrorBanner } from '@/components/ui/data-ui';
 import { AppText, Card, EmptyState, PageScaffold, Pill, ProgressBar, SectionHeader } from '@/components/ui/primitives';
-import { Layout, Palette, Radius, Space } from '@/constants/design';
-
-const journeySlots = [1, 2, 3, 4];
+import { Palette, Radius, Space } from '@/constants/design';
+import { useAcademy } from '@/context/academy-context';
+import { useAcademyData } from '@/context/academy-data-context';
 
 export default function LearningJourneysScreen() {
-  const { width } = useWindowDimensions();
-  const compact = width < Layout.compactBreakpoint;
+  const router = useRouter();
+  const { selectedChildId } = useAcademy();
+  const { data, isLoading, error, refresh } = useAcademyData();
+  const child = data.children.find((entry) => entry.id === selectedChildId);
+
+  if (isLoading && !child) return <DataLoading label="Lernreisen werden geladen …" />;
+
+  if (!child) {
+    return (
+      <PageScaffold eyebrow="Mein Lernweg" title="Lernreisen">
+        <Card><EmptyState icon="children" title="Kein Kinderprofil ausgewählt" description="Öffne den Kinderbereich über „Meine Kinder“." actionLabel="Kinder auswählen" onAction={() => router.replace('/kinder')} /></Card>
+      </PageScaffold>
+    );
+  }
+
+  const activeYears = data.academyYears.filter((year) => year.is_active);
+  const yearIds = activeYears.map((year) => year.id);
+  const journeys = data.journeys
+    .filter((journey) => journey.is_published && journey.age_group === child.age_group && yearIds.includes(journey.academy_year_id))
+    .sort((a, b) => a.position - b.position);
+  const journeyIds = journeys.map((journey) => journey.id);
+  const allLessons = data.lessons.filter(
+    (lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published'
+  );
+  const progressRows = data.lessonProgress.filter((row) => row.child_id === child.id);
+  const completed = allLessons.filter(
+    (lesson) => progressRows.find((row) => row.lesson_id === lesson.id)?.status === 'completed'
+  ).length;
+  const overall = allLessons.length ? Math.round((completed / allLessons.length) * 100) : 0;
 
   return (
     <PageScaffold
-      eyebrow="Mein Lernweg"
+      eyebrow={`Lernweg von ${child.display_name}`}
       title="Lernreisen"
-      description="Hier entsteht der aufeinander aufbauende Lernweg für das gesamte Akademiejahr.">
+      description="Alle veröffentlichten Lernbereiche und Lektionen für deine Altersgruppe.">
+      {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
       <Card tone="dark" style={styles.overviewCard}>
         <View style={styles.overviewTop}>
-          <View>
-            <Pill tone="sun">Akademiejahr</Pill>
-            <AppText variant="title" color={Palette.white} style={styles.overviewTitle}>
-              Noch keine Lernreise veröffentlicht
+          <View style={styles.overviewCopy}>
+            <Pill tone="sun">{activeYears[0]?.title ?? 'Akademiejahr'}</Pill>
+            <AppText variant="title" color={Palette.white}>
+              {journeys.length ? `${journeys.length} Lernreisen warten auf dich` : 'Noch keine Lernreise veröffentlicht'}
             </AppText>
           </View>
-          <View style={styles.overviewIcon}>
-            <AppIcon name="journeys" size={28} color={Palette.sun} />
-          </View>
+          <View style={styles.overviewIcon}><AppIcon name="journeys" size={28} color={Palette.sun} /></View>
         </View>
-        <ProgressBar value={0} color={Palette.sun} trackColor="rgba(255,255,255,0.13)" />
+        <ProgressBar value={overall} color={Palette.sun} trackColor="rgba(255,255,255,0.13)" />
         <View style={styles.overviewMeta}>
-          <AppText variant="small" color="#CDE0D7">0 Lektionen abgeschlossen</AppText>
-          <AppText variant="small" color="#CDE0D7">0 %</AppText>
+          <AppText variant="small" color="#CDE0D7">{completed} von {allLessons.length} Lektionen abgeschlossen</AppText>
+          <AppText variant="small" color="#CDE0D7">{overall} %</AppText>
         </View>
       </Card>
 
-      <SectionHeader title="Deine Reise" description="Die Lernbereiche werden vom Akademie-Team freigeschaltet." />
-      <View style={[styles.map, compact && styles.mapCompact]}>
-        {journeySlots.map((slot, index) => (
-          <View key={slot} style={[styles.mapItem, compact && styles.mapItemCompact]}>
-            {index < journeySlots.length - 1 && (
-              <View style={[styles.connector, compact && styles.connectorCompact]} />
-            )}
-            <Card style={styles.journeyCard}>
-              <View style={styles.journeyNumber}>
-                <AppText variant="bodyStrong" color={Palette.forest}>{slot}</AppText>
-              </View>
-              <View style={styles.journeyCopy}>
-                <Pill>Gesperrt</Pill>
-                <AppText variant="heading">Lernreise {slot}</AppText>
-                <AppText color={Palette.inkSoft}>Titel, Beschreibung und Lektionen werden später eingepflegt.</AppText>
-              </View>
-              <View style={styles.lockIcon}>
-                <AppIcon name="lock" size={19} color={Palette.muted} />
-              </View>
-            </Card>
-          </View>
-        ))}
-      </View>
-
-      <Card>
-        <EmptyState
-          compact
-          icon="play"
-          title="Noch nichts zum Nachholen"
-          description="Veröffentlichte Lesson Replays erscheinen automatisch in diesem Bereich."
-        />
-      </Card>
+      <SectionHeader title="Deine Reise" description="Arbeite dich in deinem eigenen Tempo durch die Lektionen." />
+      {journeys.length === 0 ? (
+        <Card><EmptyState icon="journeys" title="Noch keine Lernreise" description="Veröffentlichte Lernreisen erscheinen automatisch hier." /></Card>
+      ) : (
+        <View style={styles.journeyList}>
+          {journeys.map((journey, index) => {
+            const lessons = allLessons
+              .filter((lesson) => lesson.learning_journey_id === journey.id)
+              .sort((a, b) => a.position - b.position);
+            const journeyCompleted = lessons.filter(
+              (lesson) => progressRows.find((row) => row.lesson_id === lesson.id)?.status === 'completed'
+            ).length;
+            const percent = lessons.length ? Math.round((journeyCompleted / lessons.length) * 100) : 0;
+            return (
+              <Card key={journey.id} style={styles.journeyCard}>
+                <View style={styles.journeyHeader}>
+                  <View style={styles.journeyNumber}><AppText variant="heading" color={Palette.forest}>{index + 1}</AppText></View>
+                  <View style={styles.journeyCopy}>
+                    <View style={styles.titleLine}>
+                      <AppText variant="heading">{journey.title}</AppText>
+                      <Pill tone={percent === 100 ? 'mint' : 'neutral'}>{journeyCompleted}/{lessons.length} geschafft</Pill>
+                    </View>
+                    {journey.description && <AppText color={Palette.inkSoft}>{journey.description}</AppText>}
+                    <ProgressBar value={percent} />
+                  </View>
+                </View>
+                {lessons.length === 0 ? (
+                  <AppText color={Palette.muted}>Noch keine Lektion veröffentlicht.</AppText>
+                ) : (
+                  <View style={styles.lessonList}>
+                    {lessons.map((lesson) => {
+                      const progress = progressRows.find((row) => row.lesson_id === lesson.id);
+                      return (
+                        <Pressable
+                          key={lesson.id}
+                          accessibilityRole="button"
+                          onPress={() => router.push(`/lektion/${lesson.id}`)}
+                          style={({ pressed }) => [styles.lessonRow, pressed && styles.pressed]}>
+                          <View style={[styles.lessonStatus, progress?.status === 'completed' && styles.lessonStatusDone]}>
+                            <AppIcon name={progress?.status === 'completed' ? 'check' : 'play'} size={17} color={progress?.status === 'completed' ? Palette.white : Palette.forest} />
+                          </View>
+                          <View style={styles.lessonCopy}>
+                            <AppText variant="bodyStrong">{lesson.title}</AppText>
+                            <AppText variant="small" color={Palette.muted}>
+                              {progress?.status === 'completed' ? 'Abgeschlossen' : progress?.progress_percent ? `${progress.progress_percent}% bearbeitet` : 'Noch nicht begonnen'}
+                            </AppText>
+                          </View>
+                          <AppIcon name="arrow" size={18} color={Palette.forest} />
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </Card>
+            );
+          })}
+        </View>
+      )}
     </PageScaffold>
   );
 }
@@ -73,29 +127,19 @@ export default function LearningJourneysScreen() {
 const styles = StyleSheet.create({
   overviewCard: { minHeight: 220, justifyContent: 'space-between' },
   overviewTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Space.lg },
-  overviewTitle: { marginTop: Space.lg, maxWidth: 620 },
-  overviewIcon: {
-    width: 58, height: 58, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  overviewMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: Space.sm },
-  map: { flexDirection: 'row', gap: Space.lg },
-  mapCompact: { flexDirection: 'column' },
-  mapItem: { flex: 1, position: 'relative', minWidth: 0 },
-  mapItemCompact: { width: '100%' },
-  connector: {
-    position: 'absolute', right: -Space.lg, top: 58, width: Space.lg, height: 2,
-    backgroundColor: Palette.line, zIndex: -1,
-  },
-  connectorCompact: { left: 38, top: '100%', width: 2, height: Space.lg },
-  journeyCard: { minHeight: 245, padding: Space.lg },
-  journeyNumber: {
-    width: 42, height: 42, borderRadius: 15, backgroundColor: Palette.mint,
-    alignItems: 'center', justifyContent: 'center', marginBottom: Space.lg,
-  },
-  journeyCopy: { gap: Space.sm, flex: 1 },
-  lockIcon: {
-    position: 'absolute', right: Space.lg, top: Space.lg, width: 35, height: 35,
-    borderRadius: Radius.small, backgroundColor: '#F0F3F1', alignItems: 'center', justifyContent: 'center',
-  },
+  overviewCopy: { flex: 1, alignItems: 'flex-start', gap: Space.lg },
+  overviewIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  overviewMeta: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: Space.sm, marginTop: Space.sm },
+  journeyList: { gap: Space.lg },
+  journeyCard: { gap: Space.xl },
+  journeyHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.lg },
+  journeyNumber: { width: 48, height: 48, borderRadius: 17, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
+  journeyCopy: { flex: 1, minWidth: 0, gap: Space.sm },
+  titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
+  lessonList: { gap: Space.sm },
+  lessonRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: Space.md, borderWidth: 1, borderColor: Palette.line, borderRadius: Radius.medium, padding: Space.md, backgroundColor: '#FBFCFA' },
+  lessonStatus: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
+  lessonStatusDone: { backgroundColor: Palette.forest },
+  lessonCopy: { flex: 1, minWidth: 0, gap: 2 },
+  pressed: { opacity: 0.75 },
 });

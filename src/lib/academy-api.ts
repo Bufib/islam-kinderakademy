@@ -28,6 +28,16 @@ function fail(error: { message: string } | null) {
   if (error) throw new AcademyApiError(error.message);
 }
 
+export async function ensureCurrentProfileId() {
+  const { data, error } = await client().rpc('ensure_current_profile');
+  fail(error);
+  const profileId = Number(data);
+  if (!Number.isFinite(profileId)) {
+    throw new AcademyApiError('Das Supabase-Profil konnte nicht bereitgestellt werden.');
+  }
+  return profileId;
+}
+
 async function selectTable<T>(table: AcademyTableName, order: string, ascending = true) {
   const { data, error } = await client().from(table).select('*').order(order, { ascending });
   fail(error);
@@ -280,6 +290,41 @@ export async function saveTextSubmission(
     text_value: text.trim(),
     storage_path: null,
     submitted_at: new Date().toISOString(),
+  });
+}
+
+export async function saveConfirmationSubmission(
+  childId: number,
+  lessonId: number,
+  lessonStepId: number,
+  text?: string
+) {
+  const existing = await client()
+    .from('submissions')
+    .select('id')
+    .eq('child_id', childId)
+    .eq('lesson_step_id', lessonStepId)
+    .eq('submission_type', 'confirmation')
+    .limit(1)
+    .maybeSingle();
+  fail(existing.error);
+
+  const values = {
+    text_value: text?.trim() || null,
+    submitted_at: new Date().toISOString(),
+  };
+
+  if (existing.data?.id) {
+    return updateRecord('submissions', existing.data.id as number, values);
+  }
+
+  return createRecord('submissions', {
+    child_id: childId,
+    lesson_id: lessonId,
+    lesson_step_id: lessonStepId,
+    submission_type: 'confirmation',
+    storage_path: null,
+    ...values,
   });
 }
 

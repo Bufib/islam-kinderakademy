@@ -110,7 +110,7 @@ export function ChoiceChips<T extends string | number>({
   allowEmpty = false,
 }: {
   label: string;
-  options: Array<{ value: T; label: string }>;
+  options: { value: T; label: string }[];
   value: T | null;
   onChange: (value: T | null) => void;
   allowEmpty?: boolean;
@@ -142,7 +142,7 @@ export function MultiChoiceChips<T extends string | number>({
   onChange,
 }: {
   label: string;
-  options: Array<{ value: T; label: string }>;
+  options: { value: T; label: string }[];
   values: T[];
   onChange: (values: T[]) => void;
 }) {

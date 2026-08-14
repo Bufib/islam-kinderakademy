@@ -1,21 +1,21 @@
 # Islam-Kinderakademie
 
-Responsive Grundgerüst für die Lernplattform der Islam-Kinderakademie. Das Projekt basiert auf Expo 57, React Native, React Native Web und Supabase Auth.
+Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Native, React Native Web und Supabase.
 
 ## Enthaltene Bereiche
 
 - Kinderansicht mit Übersicht, Lernreisen, Kalender und Islam-Pass
 - Elternbereich mit Kinderprofilen, Terminen und Mitteilungen
 - Team-Bereich mit Curriculum, Lektionen, Gruppen und Medien
-- leerer Lektionseditor mit der vorgesehenen Fünf-Schritte-Struktur
+- Lektionseditor und Kinderansicht mit der vorgesehenen Fünf-Schritte-Struktur
 - responsive Desktop- und Mobilnavigation
 - öffentliche Werbe-Startseite sowie Registrierung und Anmeldung
 - geschützte Akademie-Routen mit Expo Router
 - Supabase-Sitzungsspeicherung für Web, iOS und Android
-- Accountbereich mit Rollenanzeige und Abmeldung
-- leere, typisierte Domänenmodelle in `src/types/academy.ts`
+- Accountbereich mit Profil-, Passwort- und Abmeldefunktionen
+- Supabase-Datenschicht für CRUD, Lernfortschritt, Abgaben und Medien
 
-Es sind bewusst noch keine fachlichen Lektionen, Medien, Nutzer oder Termine enthalten.
+Eine kleine, klar als Beispiel markierte Datenbasis ist enthalten. Es werden dabei keine künstlichen Auth-Nutzer oder Passwörter angelegt.
 
 ## Supabase einrichten
 
@@ -38,7 +38,7 @@ In der App darf nur der Publishable Key verwendet werden, niemals der `service_r
 npx supabase db push
 ```
 
-Die Migrationen gleichen `profiles` und `user_roles` ab, richten den Trigger für neue Elternkonten ein und legen das leere Akademie-Datenmodell an:
+Die Migrationen gleichen `profiles` und `user_roles` ab, reparieren fehlende Profile älterer Auth-Konten, richten den Trigger für neue Elternkonten ein und legen das Akademie-Datenmodell an:
 
 - `academy_years`, `learning_journeys`, `lessons` und `lesson_steps`
 - `children`, `groups` und `group_members`
@@ -47,14 +47,19 @@ Die Migrationen gleichen `profiles` und `user_roles` ab, richten den Trigger fü
 - `badges` und `child_badges`
 - `media_assets` und `messages`
 
-Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie veröffentlichte Inhalte; Lehrkräfte und Admins können Akademie-Inhalte verwalten. Für echte Dateien werden später zusätzlich ein Supabase-Storage-Bucket und eigene Storage-Policies benötigt.
+Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie veröffentlichte Inhalte; Lehrkräfte und Admins können Akademie-Inhalte verwalten. Dateien liegen im privaten Storage-Bucket `academy-media` und werden über kurzlebige signierte URLs geöffnet.
+
+Die Migration `20260814063000_example_academy_data.sql` ergänzt veröffentlichte Beispiel-Lernreisen, zwei Lektionen, Lernschritte, Gruppen, einen Termin, Abzeichen, eine Mitteilung und für bestehende reine Elternkonten ein `Beispielkind`.
 
 3. Unter **Authentication → URL Configuration** die URLs freigeben:
 
 - Site URL lokal: `http://localhost:8081`
 - Redirect lokal: `http://localhost:8081/login`
+- Redirect lokal Passwort: `http://localhost:8081/account`
 - Redirect Produktion: `https://DEINE-DOMAIN/login`
+- Redirect Produktion Passwort: `https://DEINE-DOMAIN/account`
 - Redirect App: `islamkinderakademie://login`
+- Redirect App Passwort: `islamkinderakademie://account`
 
 ## Starten
 

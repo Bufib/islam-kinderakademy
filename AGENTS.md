@@ -15,7 +15,7 @@ Die Islam-Kinderakademie ist eine web-first Lernplattform für islamischen Kinde
 
 Web ist die wichtigste Plattform. Die gemeinsame React-Native-Codebasis soll zusätzlich auf iOS und Android funktionieren.
 
-Das Projekt ist aktuell ein funktionierendes Auth- und UI-Grundgerüst. Fachliche Kursinhalte und Beispieldaten dürfen nicht ohne ausdrücklichen Auftrag ergänzt werden.
+Das Projekt ist eine funktionierende Supabase-gestützte Lernplattform. Eine kleine, ausdrücklich gewünschte Beispieldatenbasis ist vorhanden; weitere fachliche Inhalte dürfen nicht ohne Auftrag ergänzt werden.
 
 ## 2. Technischer Stack
 
@@ -25,7 +25,7 @@ Das Projekt ist aktuell ein funktionierendes Auth- und UI-Grundgerüst. Fachlich
 - React Native `0.86.2`
 - React Native Web `~0.21.0`
 - TypeScript mit aktiviertem Strict Mode
-- Supabase für Auth, PostgreSQL und später Storage
+- Supabase für Auth, PostgreSQL und privaten Storage
 - `@supabase/supabase-js`
 - AsyncStorage für persistente native Supabase-Sitzungen
 - `react-native-url-polyfill`
@@ -84,6 +84,7 @@ Der Einstieg liegt in `src/app/_layout.tsx`.
 - `/` – reine Werbe-Startseite
 - `/login` – Anmeldung
 - `/register` – Registrierung
+- `/passwort-vergessen` – Passwort-Wiederherstellung
 
 Geschützte Routen:
 
@@ -97,10 +98,13 @@ Geschützte Routen:
 - `/curriculum`
 - `/lektionen`
 - `/lektion-neu`
+- `/lektion/[id]`
 - `/gruppen`
 - `/medien`
+- `/abzeichen`
+- `/abgaben`
 
-Die geschützten Seiten sind mit `Stack.Protected` aus Expo Router abgesichert. Nicht angemeldete Nutzer dürfen keine Akademieseite erreichen.
+Die geschützten Seiten sind mit verschachtelten `Stack.Protected`-Bereichen aus Expo Router abgesichert. Nicht angemeldete Nutzer dürfen keine Akademieseite erreichen. Zusätzlich sind Kinder-, Eltern- und Teamrouten nach der aktiven UI-Rolle getrennt.
 
 Wichtig: Clientseitige Protected Routes ersetzen niemals Datenbanksicherheit. Jede Supabase-Tabelle benötigt weiterhin RLS.
 
@@ -122,6 +126,8 @@ Unterstützte Abläufe:
 - persistente Sitzung im Browser und auf nativen Geräten
 - automatische Wiederherstellung der Sitzung beim Appstart
 - Abmelden
+- Profilname und Passwort ändern
+- Passwort-Wiederherstellungslink per E-Mail anfordern
 - Fallback auf Metadaten des Auth-Nutzers, falls das Profil nicht geladen werden kann
 
 Beim Registrieren schreibt die App `display_name` in `user_metadata`. Der Datenbanktrigger `handle_new_auth_user()` erstellt anschließend:
@@ -152,7 +158,7 @@ Zuordnung in `src/context/academy-context.tsx`:
 
 Neue Konten sind immer Elternkonten. Lehrkraft- und Adminrollen dürfen nur über eine gesicherte Adminfunktion oder direkt im Supabase-Dashboard vergeben werden. Es darf keinen frei zugänglichen Rollenwechsel im Client geben.
 
-Die Kinderansicht ist als UI-Grundgerüst vorhanden, wird aktuell aber nicht über einen eigenen Kinder-Login ausgewählt. Kinder werden fachlich über `children` einem Elternprofil zugeordnet.
+Die Kinderansicht wird vom Elternkonto aus über ein konkretes Kinderprofil geöffnet. Es gibt bewusst keinen eigenen Kinder-Login. Beim Verlassen der Kinderansicht wechselt die App zurück in den Elternbereich. Kinder werden fachlich über `children` einem Elternprofil zugeordnet.
 
 ## 8. Supabase-Datenmodell
 
@@ -260,7 +266,7 @@ Abgaben eines Kindes. Typen:
 - `audio`
 - `image`
 
-Dateien selbst gehören später in Supabase Storage; die Tabelle speichert nur den Pfad.
+Dateien selbst gehören in Supabase Storage; die Tabelle speichert nur den Pfad. Die aktuelle Lernoberfläche unterstützt Textantworten und Bestätigungen. Audio- und Bildabgaben sind im Schema vorbereitet, aber noch nicht Teil der UI.
 
 #### `badges`
 
@@ -274,7 +280,7 @@ Einem Kind verliehene Abzeichen.
 
 #### `media_assets`
 
-Metadaten für Bilder, Audio, Video oder Dokumente. Die eigentlichen Dateien liegen später im Storage-Bucket `academy-media`.
+Metadaten für Bilder, Audio, Video oder Dokumente. Die eigentlichen Dateien liegen im privaten Storage-Bucket `academy-media`.
 
 #### `messages`
 
@@ -336,10 +342,13 @@ Aktueller relevanter Stand:
 - `20260814015644_initial_academy_schema.sql` – historisch bereits leer ausgeführt
 - `20260814050000_academy_learning_schema.sql` – Accountabgleich, Tabellen, Beziehungen, Indizes und Funktionen
 - `20260814050100_academy_row_level_security.sql` – RLS-Policies und Grants
+- `20260814061000_academy_media_storage.sql` – privater Medien-Bucket und Storage-Policies
+- `20260814062000_ensure_account_profiles.sql` – Backfill und sichere Reparatur fehlender Auth-Profile
+- `20260814063000_example_academy_data.sql` – klar markierte, idempotente Beispieldaten ohne Auth-Nutzer
 
-Die beiden Akademiemigrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
+Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
-Keine Seeds oder fachlichen Beispieldaten anlegen, solange der Nutzer dies nicht ausdrücklich verlangt.
+Weitere Seeds oder fachliche Beispieldaten nur auf ausdrücklichen Auftrag anlegen.
 
 ## 11. Aktueller Funktionsstand
 
@@ -349,29 +358,29 @@ Bereits funktional umgesetzt:
 - Registrierung und Login über Supabase
 - persistente Sitzung
 - E-Mail-Bestätigungsablauf
-- Protected Routes
-- rollenabhängiger Eltern- beziehungsweise Teambereich
-- Accountansicht und Abmelden
+- Protected Routes nach Anmeldung und UI-Rolle
+- rollenabhängiger Eltern-, Kinder- und Teambereich
+- Accountansicht, Profilbearbeitung, Passwortänderung und Abmelden
+- Passwort-Wiederherstellung per Supabase-E-Mail
 - vollständiges leeres Datenbankschema mit RLS
 - responsive App-Shell für Web und Mobile
+- CRUD für Kinderprofile, Akademiejahre, Lernreisen, Lektionen, Gruppen und Live-Termine
+- fester Lektionseditor mit fünf interaktiven Lernschritten
+- Fortschritt pro Schritt und Lektion
+- Textantworten und Challenge-Bestätigungen
+- Zoom-Links und Replay-Links aus Supabase
+- Mitteilungen an alle, einzelne Profile oder Gruppen
+- Abzeichenverwaltung und persönliche Verleihung
+- Abgabenübersicht für das Akademieteam
+- private Medien-Uploads, signierte Download-Links und Löschung in Supabase Storage
+- datengetriebene Eltern-, Kinder- und Team-Dashboards
 
-Noch nicht funktional angebunden:
+Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:
 
-- CRUD für Kinderprofile
-- Laden und Bearbeiten von Lernreisen und Lektionen
-- Speichern interaktiver Lernschritte
-- Zoom-Termine aus `live_sessions`
-- Gruppenverwaltung
-- Fortschritt und Abgaben
-- Badges
-- Mitteilungen aus Supabase
-- Supabase Storage und Uploads
-- Passwort-zurücksetzen-Ablauf
-- Profilbearbeitung
+- zusätzliche fachliche Kursinhalte jenseits der vorhandenen Beispieldaten
+- Audio- und Bildabgaben aus Lernschritten
 - Zahlungs- oder Mitgliedschaftssystem
 - Push-Benachrichtigungen
-
-Die vorhandenen Fachseiten sind momentan UI-Grundgerüste beziehungsweise Empty States. Eine existierende Tabelle bedeutet nicht automatisch, dass die Seite bereits Daten lädt.
 
 ## 12. Frontend-Struktur
 
@@ -384,6 +393,7 @@ src/
     register.tsx           Registrierung
     dashboard.tsx          rollenabhängiges Dashboard
     account.tsx            Account und Abmelden
+    lektion/[id].tsx       Kinder-Lektion und Interaktionen
     ...                    fachliche Akademieseiten
   components/
     app-shell.tsx          Sidebar, Topbar und Mobilnavigation
@@ -395,11 +405,14 @@ src/
     design.ts              Farben, Abstände, Radien und Breakpoints
   context/
     auth-context.tsx       Supabase-Sitzung und Accountprofil
-    academy-context.tsx    Zuordnung der Accountrolle zur UI
+    academy-context.tsx    Zuordnung der Accountrolle und Kinderprofil-Auswahl
+    academy-data-context.tsx gemeinsamer Datenzustand und Aktualisierung
   lib/
     supabase.ts            Supabase-Clientkonfiguration
+    academy-api.ts         Abfragen, CRUD, Lernfortschritt und Storage
   types/
     academy.ts             fachliche TypeScript-Modelle
+    database.ts            Zeilentypen des Supabase-Datenmodells
   utils/
     auth-errors.ts         deutsche Auth-Fehlermeldungen
 ```

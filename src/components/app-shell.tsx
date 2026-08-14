@@ -45,6 +45,7 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: 'Gruppen', icon: 'groups', href: '/gruppen', mobile: false },
     { label: 'Medien', icon: 'media', href: '/medien', mobile: false },
     { label: 'Abzeichen', icon: 'trophy', href: '/abzeichen', mobile: false },
+    { label: 'Abgaben', icon: 'check', href: '/abgaben', mobile: false },
   ],
 };
 
@@ -85,10 +86,11 @@ const pageTitles: Record<string, string> = {
   '/gruppen': 'Gruppen',
   '/medien': 'Medien',
   '/abzeichen': 'Abzeichen',
+  '/abgaben': 'Abgaben',
   '/account': 'Mein Account',
 };
 
-const publicPaths = new Set(['/', '/login', '/register']);
+const publicPaths = new Set(['/', '/login', '/register', '/passwort-vergessen']);
 
 export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
@@ -130,9 +132,16 @@ export function AppShell({ children }: PropsWithChildren) {
         <View style={styles.main}>
           <TopBar
             compact={!desktop}
-            pageTitle={pageTitles[pathname] ?? 'Islam-Kinderakademie'}
+            pageTitle={pathname.startsWith('/lektion/') ? 'Lektion' : pageTitles[pathname] ?? 'Islam-Kinderakademie'}
             activeRole={activeRole}
-            onOpenAccount={() => router.push('/account' as Href)}
+            onOpenAccount={() => {
+              if (activeRole === 'child') {
+                exitChildArea();
+                router.replace('/dashboard' as Href);
+              } else {
+                router.push('/account' as Href);
+              }
+            }}
             onOpenNotifications={() => router.push('/mitteilungen' as Href)}
           />
           <View style={styles.routeContent}>{children}</View>
