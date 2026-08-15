@@ -27,6 +27,7 @@ export function AdminDashboard() {
   const compact = width < Layout.compactBreakpoint;
   const { data, isLoading, error, refresh } = useAcademyData();
   const [quizSearch, setQuizSearch] = useState('');
+  const [expandedLessonIds, setExpandedLessonIds] = useState<number[]>([]);
   const adminIds = new Set(data.userRoles.filter((row) => row.role === 'admin').map((row) => row.profile_id));
   const teacherIds = new Set(data.userRoles.filter((row) => row.role === 'teacher').map((row) => row.profile_id));
   const staffIds = new Set([...adminIds, ...teacherIds]);
@@ -74,6 +75,14 @@ export function AdminDashboard() {
 
   function openTopicEditor(lessonId: number) {
     router.push(`/lektion-neu?lessonId=${lessonId}&returnTo=dashboard` as Href);
+  }
+
+  function toggleLessonDetails(lessonId: number) {
+    setExpandedLessonIds((current) =>
+      current.includes(lessonId)
+        ? current.filter((id) => id !== lessonId)
+        : [...current, lessonId]
+    );
   }
 
   return (
@@ -145,6 +154,7 @@ export function AdminDashboard() {
         ) : (
           <View style={styles.quizList}>
             {visibleQuizLessons.map((lesson) => {
+              const isExpanded = expandedLessonIds.includes(lesson.id);
               const journey = data.journeys.find((entry) => entry.id === lesson.learning_journey_id);
               const quiz = data.quizzes.find((entry) => entry.lesson_id === lesson.id);
               const questionCount = quiz
@@ -152,41 +162,64 @@ export function AdminDashboard() {
                 : 0;
               return (
                 <View key={lesson.id} style={styles.quizRow}>
-                  <View style={styles.quizIcon}>
-                    <AppIcon name={quiz ? 'check' : 'add'} size={19} color={Palette.forest} />
-                  </View>
-                  <View style={styles.quizCopy}>
-                    <AppText variant="bodyStrong">{lesson.title}</AppText>
-                    <AppText variant="small" color={Palette.muted} numberOfLines={1}>
-                      {journey?.title ?? 'Unbekannte Lernreise'}
-                    </AppText>
-                  </View>
-                  <View style={styles.quizStatus}>
-                    <Pill tone={quiz ? 'sky' : 'neutral'}>
-                      {quiz ? `${questionCount} ${questionCount === 1 ? 'Frage' : 'Fragen'}` : 'Kein Quiz'}
-                    </Pill>
-                    {quiz && (
-                      <Pill tone={quiz.is_published ? 'mint' : 'sun'}>
-                        {quiz.is_published ? 'Freigegeben' : 'Gesperrt'}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${lesson.title} ${isExpanded ? 'einklappen' : 'ausklappen'}`}
+                    accessibilityState={{ expanded: isExpanded }}
+                    onPress={() => toggleLessonDetails(lesson.id)}
+                    style={({ pressed }) => [
+                      styles.quizToggle,
+                      pressed && styles.quizTogglePressed,
+                    ]}>
+                    <View style={styles.quizIcon}>
+                      <AppIcon name={quiz ? 'check' : 'add'} size={19} color={Palette.forest} />
+                    </View>
+                    <View style={styles.quizCopy}>
+                      <AppText variant="bodyStrong">{lesson.title}</AppText>
+                      <AppText variant="small" color={Palette.muted} numberOfLines={1}>
+                        {journey?.title ?? 'Unbekannte Lernreise'}
+                      </AppText>
+                    </View>
+                    <View style={styles.quizStatus}>
+                      <Pill tone={quiz ? 'sky' : 'neutral'}>
+                        {quiz ? `${questionCount} ${questionCount === 1 ? 'Frage' : 'Fragen'}` : 'Kein Quiz'}
                       </Pill>
-                    )}
-                  </View>
-                  <View style={styles.topicActions}>
-                    <ActionButton
-                      label="Thema bearbeiten"
-                      icon="edit"
-                      compact
-                      variant="secondary"
-                      onPress={() => openTopicEditor(lesson.id)}
-                    />
-                    <ActionButton
-                      label={quiz ? 'Quiz bearbeiten' : 'Quiz anlegen'}
-                      icon={quiz ? 'edit' : 'add'}
-                      compact
-                      variant={quiz ? 'secondary' : 'primary'}
-                      onPress={() => openQuizEditor(lesson.id)}
-                    />
-                  </View>
+                      {quiz && (
+                        <Pill tone={quiz.is_published ? 'mint' : 'sun'}>
+                          {quiz.is_published ? 'Freigegeben' : 'Gesperrt'}
+                        </Pill>
+                      )}
+                    </View>
+                    <View style={styles.expandControl}>
+                      <AppText variant="small" color={Palette.forest}>
+                        {isExpanded ? 'Schließen' : 'Öffnen'}
+                      </AppText>
+                      <AppIcon
+                        name="chevron"
+                        size={20}
+                        color={Palette.forest}
+                        style={isExpanded ? styles.chevronExpanded : undefined}
+                      />
+                    </View>
+                  </Pressable>
+                  {isExpanded && (
+                    <View style={styles.topicActions}>
+                      <ActionButton
+                        label="Thema bearbeiten"
+                        icon="edit"
+                        compact
+                        variant="secondary"
+                        onPress={() => openTopicEditor(lesson.id)}
+                      />
+                      <ActionButton
+                        label={quiz ? 'Quiz bearbeiten' : 'Quiz anlegen'}
+                        icon={quiz ? 'edit' : 'add'}
+                        compact
+                        variant={quiz ? 'secondary' : 'primary'}
+                        onPress={() => openQuizEditor(lesson.id)}
+                      />
+                    </View>
+                  )}
                 </View>
               );
             })}
@@ -279,11 +312,41 @@ const styles = StyleSheet.create({
   quizToolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', gap: Space.lg, marginTop: Space.lg },
   quizSearch: { flex: 1, minWidth: 240 },
   quizList: { marginTop: Space.lg },
-  quizRow: { minHeight: 76, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.sm },
+  quizRow: { minHeight: 68, borderBottomWidth: 1, borderBottomColor: Palette.line },
+  quizToggle: {
+    width: '100%',
+    minHeight: 68,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: Space.md,
+    borderRadius: Radius.medium,
+    paddingVertical: Space.sm,
+  },
+  quizTogglePressed: { backgroundColor: Palette.cream },
   quizIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
   quizCopy: { flex: 1, minWidth: 210, gap: 2 },
   quizStatus: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
-  topicActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
+  expandControl: {
+    minWidth: 94,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: Radius.small,
+    backgroundColor: Palette.mint,
+    paddingHorizontal: Space.sm,
+  },
+  chevronExpanded: { transform: [{ rotate: '90deg' }] },
+  topicActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Space.sm,
+    paddingLeft: 40 + Space.md,
+    paddingRight: Space.sm,
+    paddingBottom: Space.md,
+  },
   quizHint: { paddingTop: Space.md },
   mainGrid: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },

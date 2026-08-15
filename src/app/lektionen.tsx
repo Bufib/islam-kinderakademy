@@ -32,6 +32,7 @@ export default function LessonsScreen() {
   const [ageGroupFilterId, setAgeGroupFilterId] = useState<number | null>(null);
   const [journeyFilterId, setJourneyFilterId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [expandedJourneyIds, setExpandedJourneyIds] = useState<number[]>([]);
   const [expandedLessonIds, setExpandedLessonIds] = useState<number[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [releaseAction, setReleaseAction] = useState<string | null>(null);
@@ -129,6 +130,14 @@ export default function LessonsScreen() {
       current.includes(lessonId)
         ? current.filter((id) => id !== lessonId)
         : [...current, lessonId]
+    );
+  }
+
+  function toggleJourneyLessons(journeyId: number) {
+    setExpandedJourneyIds((current) =>
+      current.includes(journeyId)
+        ? current.filter((id) => id !== journeyId)
+        : [...current, journeyId]
     );
   }
 
@@ -352,6 +361,7 @@ export default function LessonsScreen() {
               </Card>
               <View style={styles.groupList}>
                 {journeyGroups.map(({ journey, lessons }) => {
+                  const isJourneyExpanded = expandedJourneyIds.includes(journey.id);
                   const ageGroup = data.ageGroups.find((entry) => entry.id === journey.age_group_id);
                   const releasableCount = lessons.filter(
                     (lesson) => lesson.status === 'published' && !lesson.is_released
@@ -373,23 +383,41 @@ export default function LessonsScreen() {
                       Zugeordnet zu {year.title} · {ageGroup?.title ?? 'Ohne Altersgruppe'} · {lessons.length} Lektionen
                     </AppText>
                   </View>
-                  {isAdmin && (
-                    <ActionButton
-                      label={
-                        releaseAction === `journey-${journey.id}`
-                          ? 'Freigabe läuft …'
-                          : `Alle freigeben (${releasableCount})`
-                      }
-                      icon="check"
-                      compact
-                      variant="secondary"
-                      disabled={releaseAction !== null || releasableCount === 0}
-                      onPress={() => void releaseAll(lessons, journey)}
-                    />
-                  )}
+                  <View style={styles.journeyActions}>
+                    {isAdmin && (
+                      <ActionButton
+                        label={
+                          releaseAction === `journey-${journey.id}`
+                            ? 'Freigabe läuft …'
+                            : `Alle freigeben (${releasableCount})`
+                        }
+                        icon="check"
+                        compact
+                        variant="secondary"
+                        disabled={releaseAction !== null || releasableCount === 0}
+                        onPress={() => void releaseAll(lessons, journey)}
+                      />
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`${lessons.length} Lektionen ${isJourneyExpanded ? 'einklappen' : 'ausklappen'}`}
+                      accessibilityState={{ expanded: isJourneyExpanded }}
+                      onPress={() => toggleJourneyLessons(journey.id)}
+                      style={({ pressed }) => [
+                        styles.journeyToggle,
+                        pressed && styles.lessonTogglePressed,
+                      ]}>
+                      <AppIcon
+                        name="chevron"
+                        size={21}
+                        color={Palette.forest}
+                        style={isJourneyExpanded ? styles.chevronExpanded : undefined}
+                      />
+                    </Pressable>
+                  </View>
                 </View>
 
-                <View style={styles.lessonList}>
+                {isJourneyExpanded && <View style={styles.lessonList}>
                   {lessons.map((lesson) => {
                     const isExpanded = expandedLessonIds.includes(lesson.id);
                     const session = data.liveSessions.find((entry) => entry.lesson_id === lesson.id);
@@ -442,6 +470,9 @@ export default function LessonsScreen() {
                             </AppText>
                           </View>
                           <View style={styles.chevronButton}>
+                            <AppText variant="small" color={Palette.forest}>
+                              {isExpanded ? 'Schließen' : 'Öffnen'}
+                            </AppText>
                             <AppIcon
                               name="chevron"
                               size={21}
@@ -521,7 +552,7 @@ export default function LessonsScreen() {
                       </View>
                     );
                   })}
-                </View>
+                </View>}
                     </Card>
                   );
                 })}
@@ -553,6 +584,17 @@ const styles = StyleSheet.create({
   journeyHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md },
   journeyIcon: { width: 48, height: 48, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.skySoft },
   journeyCopy: { flex: 1, minWidth: 240, gap: 4 },
+  journeyActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
+  journeyToggle: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Palette.mintStrong,
+    borderRadius: Radius.medium,
+    backgroundColor: Palette.mint,
+  },
   lessonList: { gap: Space.sm },
   lessonRow: { borderBottomWidth: 1, borderBottomColor: Palette.line },
   lessonToggle: {
@@ -567,20 +609,23 @@ const styles = StyleSheet.create({
   lessonIcon: { width: 46, height: 46, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
   lessonSummary: { flex: 1, minWidth: 0, gap: 4 },
   chevronButton: {
-    width: 38,
+    minWidth: 94,
     height: 38,
     flexShrink: 0,
+    flexDirection: 'row',
+    gap: 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.small,
     backgroundColor: Palette.mint,
+    paddingHorizontal: Space.sm,
   },
   chevronExpanded: { transform: [{ rotate: '90deg' }] },
   lessonDetails: {
     gap: Space.md,
     marginLeft: 46 + Space.md,
     paddingBottom: Space.lg,
-    paddingRight: 38 + Space.md,
+    paddingRight: Space.sm,
   },
   lessonEditActions: {
     flexDirection: 'row',
