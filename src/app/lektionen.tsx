@@ -1,6 +1,6 @@
 import { Href, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { ChoiceChips, DataLoading, ErrorBanner, IconAction, RowActions } from '@/components/ui/data-ui';
@@ -32,6 +32,7 @@ export default function LessonsScreen() {
   const [ageGroupFilterId, setAgeGroupFilterId] = useState<number | null>(null);
   const [journeyFilterId, setJourneyFilterId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [expandedLessonIds, setExpandedLessonIds] = useState<number[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [releaseAction, setReleaseAction] = useState<string | null>(null);
   const isAdmin = profile?.role === 'admin';
@@ -121,6 +122,14 @@ export default function LessonsScreen() {
 
   function editQuiz(lesson: LessonRow) {
     router.push(`/quiz-bearbeiten?lessonId=${lesson.id}` as Href);
+  }
+
+  function toggleLessonDetails(lessonId: number) {
+    setExpandedLessonIds((current) =>
+      current.includes(lessonId)
+        ? current.filter((id) => id !== lessonId)
+        : [...current, lessonId]
+    );
   }
 
   async function removeLesson(lesson: LessonRow) {
@@ -382,6 +391,7 @@ export default function LessonsScreen() {
 
                 <View style={styles.lessonList}>
                   {lessons.map((lesson) => {
+                    const isExpanded = expandedLessonIds.includes(lesson.id);
                     const session = data.liveSessions.find((entry) => entry.lesson_id === lesson.id);
                     const quiz = data.quizzes.find((entry) => entry.lesson_id === lesson.id);
                     const hasCompletedSession = data.liveSessions.some(
@@ -392,92 +402,122 @@ export default function LessonsScreen() {
                       : 0;
                     return (
                       <View key={lesson.id} style={styles.lessonRow}>
-                        <View style={styles.lessonIcon}>
-                          <AppIcon name={lesson.status === 'published' ? 'check' : 'lessons'} size={22} color={Palette.forest} />
-                        </View>
-                        <View style={styles.lessonCopy}>
-                          <View style={styles.titleLine}>
-                            <AppText variant="bodyStrong">{lesson.title}</AppText>
-                            <Pill tone={lesson.status === 'published' ? 'mint' : lesson.status === 'scheduled' ? 'sky' : 'sun'}>
-                              {lesson.status === 'published'
-                                ? 'Veröffentlicht'
-                                : lesson.status === 'scheduled'
-                                  ? 'Geplant'
-                                  : lesson.status === 'archived'
-                                    ? 'Archiviert'
-                                    : 'Entwurf'}
-                            </Pill>
-                            <Pill tone={lesson.is_released ? 'mint' : 'neutral'}>
-                              {lesson.is_released ? 'Lektion freigegeben' : 'Lektion gesperrt'}
-                            </Pill>
-                            {quiz && (
-                              <Pill tone={quiz.is_published ? 'mint' : 'sun'}>
-                                {quiz.is_published ? 'Quiz freigegeben' : 'Quiz gesperrt'}
-                              </Pill>
-                            )}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`${lesson.title} ${isExpanded ? 'einklappen' : 'ausklappen'}`}
+                          accessibilityState={{ expanded: isExpanded }}
+                          onPress={() => toggleLessonDetails(lesson.id)}
+                          style={({ pressed }) => [
+                            styles.lessonToggle,
+                            pressed && styles.lessonTogglePressed,
+                          ]}>
+                          <View style={styles.lessonIcon}>
+                            <AppIcon name={lesson.status === 'published' ? 'check' : 'lessons'} size={22} color={Palette.forest} />
                           </View>
-                          <AppText variant="small" color={Palette.inkSoft}>
-                            Lektion {lesson.position + 1}
-                            {session ? ` · Live am ${formatDate(session.starts_at)}` : ' · Live-Termin offen'}
-                            {quiz ? ` · ${questionCount} Quizfragen` : ' · Quiz offen'}
-                          </AppText>
-                          {lesson.description && <AppText color={Palette.inkSoft} numberOfLines={2}>{lesson.description}</AppText>}
-                          {isAdmin && (
-                            <View style={styles.releaseActions}>
-                              <ActionButton
-                                label={
-                                  releaseAction === `lesson-${lesson.id}`
-                                    ? 'Wird geändert …'
-                                    : lesson.is_released
-                                      ? 'Lektion sperren'
-                                      : 'Lektion freigeben'
-                                }
-                                icon={lesson.is_released ? 'close' : 'check'}
-                                compact
-                                variant="secondary"
-                                disabled={
-                                  releaseAction !== null ||
-                                  (!lesson.is_released && lesson.status !== 'published')
-                                }
-                                onPress={() => void toggleLessonRelease(lesson)}
-                              />
+                          <View style={styles.lessonSummary}>
+                            <View style={styles.titleLine}>
+                              <AppText variant="bodyStrong">{lesson.title}</AppText>
+                              <Pill tone={lesson.status === 'published' ? 'mint' : lesson.status === 'scheduled' ? 'sky' : 'sun'}>
+                                {lesson.status === 'published'
+                                  ? 'Veröffentlicht'
+                                  : lesson.status === 'scheduled'
+                                    ? 'Geplant'
+                                    : lesson.status === 'archived'
+                                      ? 'Archiviert'
+                                      : 'Entwurf'}
+                              </Pill>
+                              <Pill tone={lesson.is_released ? 'mint' : 'neutral'}>
+                                {lesson.is_released ? 'Freigegeben' : 'Gesperrt'}
+                              </Pill>
                               {quiz && (
+                                <Pill tone={quiz.is_published ? 'mint' : 'sun'}>
+                                  {quiz.is_published ? 'Quiz frei' : 'Quiz gesperrt'}
+                                </Pill>
+                              )}
+                            </View>
+                            <AppText variant="small" color={Palette.inkSoft}>
+                              Lektion {lesson.position + 1}
+                              {session ? ` · Live am ${formatDate(session.starts_at)}` : ' · Live-Termin offen'}
+                              {quiz ? ` · ${questionCount} Quizfragen` : ' · Quiz offen'}
+                            </AppText>
+                          </View>
+                          <View style={styles.chevronButton}>
+                            <AppIcon
+                              name="chevron"
+                              size={21}
+                              color={Palette.forest}
+                              style={isExpanded ? styles.chevronExpanded : undefined}
+                            />
+                          </View>
+                        </Pressable>
+
+                        {isExpanded && (
+                          <View style={styles.lessonDetails}>
+                            {lesson.description && (
+                              <AppText color={Palette.inkSoft}>{lesson.description}</AppText>
+                            )}
+                            {isAdmin && (
+                              <View style={styles.releaseActions}>
                                 <ActionButton
                                   label={
-                                    releaseAction === `quiz-${quiz.id}`
+                                    releaseAction === `lesson-${lesson.id}`
                                       ? 'Wird geändert …'
-                                      : quiz.is_published
-                                        ? 'Quiz sperren'
-                                        : 'Quiz freigeben'
+                                      : lesson.is_released
+                                        ? 'Lektion sperren'
+                                        : 'Lektion freigeben'
                                   }
-                                  icon={quiz.is_published ? 'close' : 'check'}
+                                  icon={lesson.is_released ? 'close' : 'check'}
                                   compact
                                   variant="secondary"
                                   disabled={
                                     releaseAction !== null ||
-                                    (!quiz.is_published && (!lesson.is_released || !hasCompletedSession))
+                                    (!lesson.is_released && lesson.status !== 'published')
                                   }
-                                  onPress={() => void toggleQuizRelease(quiz.id, quiz.title, quiz.is_published)}
+                                  onPress={() => void toggleLessonRelease(lesson)}
                                 />
-                              )}
-                              {!lesson.is_released && lesson.status !== 'published' && (
-                                <AppText variant="small" color={Palette.muted}>
-                                  Vor der Freigabe muss der Status „Veröffentlicht“ sein.
-                                </AppText>
-                              )}
-                              {quiz && !quiz.is_published && (!lesson.is_released || !hasCompletedSession) && (
-                                <AppText variant="small" color={Palette.muted}>
-                                  Das Quiz folgt nach Lektionsfreigabe und einem als „Beendet“ markierten Live-Termin.
-                                </AppText>
-                              )}
+                                {quiz && (
+                                  <ActionButton
+                                    label={
+                                      releaseAction === `quiz-${quiz.id}`
+                                        ? 'Wird geändert …'
+                                        : quiz.is_published
+                                          ? 'Quiz sperren'
+                                          : 'Quiz freigeben'
+                                    }
+                                    icon={quiz.is_published ? 'close' : 'check'}
+                                    compact
+                                    variant="secondary"
+                                    disabled={
+                                      releaseAction !== null ||
+                                      (!quiz.is_published && (!lesson.is_released || !hasCompletedSession))
+                                    }
+                                    onPress={() => void toggleQuizRelease(quiz.id, quiz.title, quiz.is_published)}
+                                  />
+                                )}
+                                {!lesson.is_released && lesson.status !== 'published' && (
+                                  <AppText variant="small" color={Palette.muted}>
+                                    Vor der Freigabe muss der Status „Veröffentlicht“ sein.
+                                  </AppText>
+                                )}
+                                {quiz && !quiz.is_published && (!lesson.is_released || !hasCompletedSession) && (
+                                  <AppText variant="small" color={Palette.muted}>
+                                    Das Quiz folgt nach Lektionsfreigabe und einem als „Beendet“ markierten Live-Termin.
+                                  </AppText>
+                                )}
+                              </View>
+                            )}
+                            <View style={styles.lessonEditActions}>
+                              <AppText variant="small" color={Palette.muted}>
+                                Lektion und Quiz verwalten
+                              </AppText>
+                              <RowActions
+                                extra={<IconAction icon="check" label="Quiz bearbeiten" onPress={() => editQuiz(lesson)} />}
+                                onEdit={() => editLesson(lesson)}
+                                onDelete={() => void removeLesson(lesson)}
+                              />
                             </View>
-                          )}
-                        </View>
-                        <RowActions
-                          extra={<IconAction icon="check" label="Quiz bearbeiten" onPress={() => editQuiz(lesson)} />}
-                          onEdit={() => editLesson(lesson)}
-                          onDelete={() => void removeLesson(lesson)}
-                        />
+                          </View>
+                        )}
                       </View>
                     );
                   })}
@@ -514,9 +554,41 @@ const styles = StyleSheet.create({
   journeyIcon: { width: 48, height: 48, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.skySoft },
   journeyCopy: { flex: 1, minWidth: 240, gap: 4 },
   lessonList: { gap: Space.sm },
-  lessonRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.lg },
+  lessonRow: { borderBottomWidth: 1, borderBottomColor: Palette.line },
+  lessonToggle: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.md,
+    paddingVertical: Space.md,
+    borderRadius: Radius.medium,
+  },
+  lessonTogglePressed: { backgroundColor: Palette.cream },
   lessonIcon: { width: 46, height: 46, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
-  lessonCopy: { flex: 1, minWidth: 240, gap: 4 },
+  lessonSummary: { flex: 1, minWidth: 0, gap: 4 },
+  chevronButton: {
+    width: 38,
+    height: 38,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.small,
+    backgroundColor: Palette.mint,
+  },
+  chevronExpanded: { transform: [{ rotate: '90deg' }] },
+  lessonDetails: {
+    gap: Space.md,
+    marginLeft: 46 + Space.md,
+    paddingBottom: Space.lg,
+    paddingRight: 38 + Space.md,
+  },
+  lessonEditActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Space.sm,
+  },
   titleLine: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
   releaseActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm, marginTop: Space.sm },
 });

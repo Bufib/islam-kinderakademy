@@ -16,6 +16,7 @@ export type AppIconName =
   | 'media'
   | 'add'
   | 'arrow'
+  | 'chevron'
   | 'more'
   | 'play'
   | 'video'
@@ -50,6 +51,7 @@ const iconNames: Record<AppIconName, PlatformIcon> = {
   media: { ios: 'photo.on.rectangle.angled', android: 'perm_media', web: 'perm_media' },
   add: { ios: 'plus', android: 'add', web: 'add' },
   arrow: { ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' },
+  chevron: { ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' },
   more: { ios: 'ellipsis', android: 'more_horiz', web: 'more_horiz' },
   play: { ios: 'play.fill', android: 'play_arrow', web: 'play_arrow' },
   video: { ios: 'video.fill', android: 'video_camera_front', web: 'video_camera_front' },
