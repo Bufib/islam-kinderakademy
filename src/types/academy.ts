@@ -1,5 +1,5 @@
 export type UserRole = 'child' | 'parent' | 'team';
-export type AgeGroup = '5-8' | '9-12';
+export type AgeGroupId = number;
 export type LessonStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 
 export interface AcademyYear {
@@ -12,7 +12,7 @@ export interface AcademyYear {
 export interface LearningJourney {
   id: string;
   academyYearId: string;
-  ageGroup: AgeGroup;
+  ageGroup: AgeGroupId;
   title: string;
   description?: string;
   position: number;
@@ -37,7 +37,7 @@ export interface LessonStep {
 export interface Lesson {
   id: string;
   journeyId: string;
-  ageGroup: AgeGroup;
+  ageGroup: AgeGroupId;
   title: string;
   status: LessonStatus;
   publishAt?: string;
@@ -50,7 +50,7 @@ export interface ChildProfile {
   id: string;
   parentId: string;
   displayName: string;
-  ageGroup: AgeGroup;
+  ageGroup: AgeGroupId;
   avatarKey: string;
 }
 
@@ -96,4 +96,3 @@ export const emptyAcademyData = {
   progress: [] as ProgressRecord[],
   submissions: [] as Submission[],
 };
-

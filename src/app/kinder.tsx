@@ -26,17 +26,17 @@ import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
 import { useAuth } from '@/context/auth-context';
 import { createRecord, deleteRecord, ensureCurrentProfileId, updateRecord } from '@/lib/academy-api';
-import { AgeGroup, ChildRow } from '@/types/database';
+import { ChildRow } from '@/types/database';
 import { apiErrorMessage } from '@/utils/format';
 import { confirmAction } from '@/utils/feedback';
 
 type ChildForm = {
   displayName: string;
   birthDate: string;
-  ageGroup: AgeGroup;
+  ageGroupId: number | null;
 };
 
-const emptyForm: ChildForm = { displayName: '', birthDate: '', ageGroup: '5-8' };
+const emptyForm: ChildForm = { displayName: '', birthDate: '', ageGroupId: null };
 
 export default function ChildrenScreen() {
   const router = useRouter();
@@ -53,7 +53,7 @@ export default function ChildrenScreen() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, ageGroupId: data.ageGroups[0]?.id ?? null });
     setFormError(null);
     setDialogOpen(true);
   }
@@ -63,15 +63,15 @@ export default function ChildrenScreen() {
     setForm({
       displayName: child.display_name,
       birthDate: child.birth_date ?? '',
-      ageGroup: child.age_group,
+      ageGroupId: child.age_group_id,
     });
     setFormError(null);
     setDialogOpen(true);
   }
 
   async function save() {
-    if (!form.displayName.trim()) {
-      setFormError('Bitte gib einen Anzeigenamen ein.');
+    if (!form.displayName.trim() || !form.ageGroupId) {
+      setFormError('Bitte gib einen Anzeigenamen ein und wähle eine Altersgruppe.');
       return;
     }
 
@@ -89,7 +89,7 @@ export default function ChildrenScreen() {
         parent_profile_id: parentProfileId,
         display_name: form.displayName.trim(),
         birth_date: form.birthDate || null,
-        age_group: form.ageGroup,
+        age_group_id: form.ageGroupId,
         avatar_key: editing?.avatar_key ?? `avatar-${(data.children.length % 6) + 1}`,
       };
       await execute(() =>
@@ -128,8 +128,9 @@ export default function ChildrenScreen() {
       eyebrow="Elternbereich"
       title="Meine Kinder"
       description="Kinderprofile und persönliche Lernstände werden vom Elternkonto aus verwaltet."
-      action={<ActionButton label="Kind hinzufügen" icon="add" onPress={openCreate} />}>
+      action={<ActionButton label="Kind hinzufügen" icon="add" disabled={data.ageGroups.length === 0} onPress={openCreate} />}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
+      {data.ageGroups.length === 0 && <ErrorBanner message="Das Akademie-Team muss zuerst eine Altersgruppe anlegen." />}
       <View style={[styles.layout, compact && styles.column]}>
         <Card style={styles.profilesCard}>
           <SectionHeader
@@ -149,6 +150,7 @@ export default function ChildrenScreen() {
           ) : (
             <View style={styles.profileList}>
               {data.children.map((child) => {
+                const ageGroup = data.ageGroups.find((entry) => entry.id === child.age_group_id);
                 const progressRows = data.lessonProgress.filter((row) => row.child_id === child.id);
                 const progress = progressRows.length
                   ? Math.round(
@@ -164,7 +166,7 @@ export default function ChildrenScreen() {
                     <View style={styles.profileCopy}>
                       <View style={styles.profileTitleRow}>
                         <AppText variant="bodyStrong">{child.display_name}</AppText>
-                        <Pill tone="mint">{child.age_group === '5-8' ? '5–8 Jahre' : '9–12 Jahre'}</Pill>
+                        <Pill tone="mint">{ageGroup?.title ?? 'Unbekannte Altersgruppe'}</Pill>
                       </View>
                       <ProgressBar value={progress} />
                       <AppText variant="small" color={Palette.muted}>
@@ -229,12 +231,9 @@ export default function ChildrenScreen() {
         />
         <ChoiceChips
           label="Altersgruppe"
-          value={form.ageGroup}
-          onChange={(ageGroup) => ageGroup && setForm((current) => ({ ...current, ageGroup }))}
-          options={[
-            { value: '5-8', label: '5–8 Jahre' },
-            { value: '9-12', label: '9–12 Jahre' },
-          ]}
+          value={form.ageGroupId}
+          onChange={(ageGroupId) => setForm((current) => ({ ...current, ageGroupId }))}
+          options={data.ageGroups.map((ageGroup) => ({ value: ageGroup.id, label: ageGroup.title }))}
         />
         <Field
           label="Geburtsdatum (optional)"

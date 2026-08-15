@@ -29,7 +29,7 @@ export default function IslamPassScreen() {
 
   const activeYearIds = data.academyYears.filter((year) => year.is_active).map((year) => year.id);
   const journeys = data.journeys
-    .filter((journey) => journey.age_group === child.age_group && journey.is_published && activeYearIds.includes(journey.academy_year_id))
+    .filter((journey) => journey.age_group_id === child.age_group_id && journey.is_published && activeYearIds.includes(journey.academy_year_id))
     .sort((a, b) => a.position - b.position);
   const lessonRows = data.lessons.filter(
     (lesson) => lesson.status === 'published' && journeys.some((journey) => journey.id === lesson.learning_journey_id)
@@ -63,7 +63,9 @@ export default function IslamPassScreen() {
           <View style={styles.avatar}><AppText variant="title">{child.display_name.charAt(0).toUpperCase()}</AppText></View>
           <View style={styles.passDetails}>
             <AppText variant="heading" color={Palette.white}>{child.display_name}</AppText>
-            <AppText color="#CDE0D7">Altersgruppe {child.age_group === '5-8' ? '5–8 Jahre' : '9–12 Jahre'}</AppText>
+            <AppText color="#CDE0D7">
+              Altersgruppe {data.ageGroups.find((group) => group.id === child.age_group_id)?.title ?? 'nicht zugeordnet'}
+            </AppText>
             <View style={styles.passProgressRow}>
               <AppText variant="small" color="#CDE0D7">Gesamtfortschritt</AppText>
               <AppText variant="small" color={Palette.white}>{overall} %</AppText>

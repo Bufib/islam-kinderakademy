@@ -33,8 +33,9 @@ function emptyQuestion(): QuestionForm {
 }
 
 export default function QuizEditorScreen() {
-  const params = useLocalSearchParams<{ lessonId?: string }>();
+  const params = useLocalSearchParams<{ lessonId?: string; returnTo?: string }>();
   const lessonId = Number(params.lessonId);
+  const returnPath = params.returnTo === 'dashboard' ? '/dashboard' : '/lektionen';
   const { data, isLoading, error } = useAcademyData();
   const lesson = data.lessons.find((entry) => entry.id === lessonId) ?? null;
   const quiz = data.quizzes.find((entry) => entry.lesson_id === lessonId) ?? null;
@@ -49,17 +50,27 @@ export default function QuizEditorScreen() {
     );
   }
 
-  return <QuizEditor key={`${lesson.id}-${quiz?.id ?? 'new'}`} data={data} lesson={lesson} quiz={quiz} />;
+  return (
+    <QuizEditor
+      key={`${lesson.id}-${quiz?.id ?? 'new'}`}
+      data={data}
+      lesson={lesson}
+      quiz={quiz}
+      returnPath={returnPath}
+    />
+  );
 }
 
 function QuizEditor({
   data,
   lesson,
   quiz,
+  returnPath,
 }: {
   data: AcademyData;
   lesson: LessonRow;
   quiz: LessonQuizRow | null;
+  returnPath: '/dashboard' | '/lektionen';
 }) {
   const router = useRouter();
   const { execute } = useAcademyData();
@@ -84,7 +95,7 @@ function QuizEditor({
   const [title, setTitle] = useState(quiz?.title ?? `${lesson.title} · Quiz`);
   const [description, setDescription] = useState(quiz?.description ?? '');
   const [passingPercent, setPassingPercent] = useState(String(quiz?.passing_percent ?? 70));
-  const [isPublished, setIsPublished] = useState(quiz?.is_published ?? false);
+  const isPublished = quiz?.is_published ?? false;
   const [questions, setQuestions] = useState<QuestionForm[]>(
     initialQuestions.length > 0 ? initialQuestions : [emptyQuestion()]
   );
@@ -171,7 +182,7 @@ function QuizEditor({
           })),
         })
       );
-      router.replace('/lektionen');
+      router.replace(returnPath);
     } catch (reason) {
       setFormError(apiErrorMessage(reason));
     } finally {
@@ -188,7 +199,7 @@ function QuizEditor({
     if (!confirmed) return;
     try {
       await execute(() => deleteRecord('lesson_quizzes', quiz.id));
-      router.replace('/lektionen');
+      router.replace(returnPath);
     } catch (reason) {
       setFormError(apiErrorMessage(reason));
     }
@@ -213,7 +224,7 @@ function QuizEditor({
       {formError && <ErrorBanner message={formError} />}
 
       <Card>
-        <SectionHeader title="Quiz-Einstellungen" description="Titel, Bestehensgrenze und Veröffentlichung" />
+        <SectionHeader title="Quiz-Einstellungen" description="Titel und Bestehensgrenze" />
         <View style={styles.formStack}>
           <Field label="Quiztitel" value={title} onChangeText={setTitle} />
           <Field label="Beschreibung (optional)" multiline value={description} onChangeText={setDescription} />
@@ -223,15 +234,14 @@ function QuizEditor({
             value={passingPercent}
             onChangeText={setPassingPercent}
           />
-          <ChoiceChips
-            label="Status"
-            value={isPublished ? 'published' : 'draft'}
-            onChange={(value) => setIsPublished(value === 'published')}
-            options={[
-              { value: 'draft', label: 'Entwurf' },
-              { value: 'published', label: 'Veröffentlicht' },
-            ]}
-          />
+          <View style={styles.releaseState}>
+            <Pill tone={isPublished ? 'mint' : 'sun'}>
+              {isPublished ? 'Vom Admin freigegeben' : 'Noch nicht freigegeben'}
+            </Pill>
+            <AppText variant="small" color={Palette.inkSoft} style={styles.releaseCopy}>
+              Die Freigabe erfolgt durch einen Admin in der Lektionsübersicht, nachdem der Live-Termin als „Beendet“ markiert wurde.
+            </AppText>
+          </View>
           {quiz && (
             <AppText variant="small" color={Palette.muted}>
               Beim Ändern der Fragen werden frühere Quizversuche zurückgesetzt, damit Auswertungen konsistent bleiben.
@@ -338,6 +348,8 @@ function QuizEditor({
 const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   formStack: { gap: Space.lg, marginTop: Space.xl },
+  releaseState: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
+  releaseCopy: { flex: 1, minWidth: 220 },
   questionsList: { gap: Space.lg },
   questionCard: { gap: Space.xl },
   questionHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md },

@@ -58,6 +58,22 @@ export async function setProfilePrimaryRole(
   fail(error);
 }
 
+export async function setLessonRelease(lessonId: number, isReleased: boolean) {
+  const { error } = await client().rpc('set_lesson_release', {
+    target_lesson_id: lessonId,
+    release_lesson: isReleased,
+  });
+  fail(error);
+}
+
+export async function setQuizRelease(quizId: number, isReleased: boolean) {
+  const { error } = await client().rpc('set_quiz_release', {
+    target_quiz_id: quizId,
+    release_quiz: isReleased,
+  });
+  fail(error);
+}
+
 async function selectTable<T>(table: AcademyTableName, order: string, ascending = true) {
   const { data, error } = await client().from(table).select('*').order(order, { ascending });
   fail(error);
@@ -71,6 +87,7 @@ export async function loadAcademyData(): Promise<AcademyData> {
     profiles,
     userRoles,
     academyYears,
+    ageGroups,
     children,
     journeys,
     lessons,
@@ -95,6 +112,7 @@ export async function loadAcademyData(): Promise<AcademyData> {
     selectTable<AcademyData['profiles'][number]>('profiles', 'display_name'),
     selectTable<AcademyData['userRoles'][number]>('user_roles', 'created_at'),
     selectTable<AcademyData['academyYears'][number]>('academy_years', 'starts_on', false),
+    selectTable<AcademyData['ageGroups'][number]>('age_groups', 'position'),
     selectTable<AcademyData['children'][number]>('children', 'display_name'),
     selectTable<AcademyData['journeys'][number]>('learning_journeys', 'position'),
     selectTable<AcademyData['lessons'][number]>('lessons', 'position'),
@@ -121,6 +139,7 @@ export async function loadAcademyData(): Promise<AcademyData> {
     profiles,
     userRoles,
     academyYears,
+    ageGroups,
     children,
     journeys,
     lessons,

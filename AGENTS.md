@@ -29,6 +29,7 @@ Das Projekt ist eine funktionierende Supabase-gestützte Lernplattform. Als fach
 - `@supabase/supabase-js`
 - AsyncStorage für persistente native Supabase-Sitzungen
 - `react-native-url-polyfill`
+- `@react-native-community/datetimepicker` für native Datums- und Zeitauswahl
 
 Expo hat sich versionsabhängig stark verändert. Vor Expo- oder Expo-Router-Änderungen immer die exakten Expo-57-Dokumente unter `https://docs.expo.dev/versions/v57.0.0/` prüfen.
 
@@ -142,6 +143,10 @@ Unterstützte Abläufe:
 - Passwort-Wiederherstellungslink per E-Mail anfordern
 - Fallback auf Metadaten des Auth-Nutzers, falls das Profil nicht geladen werden kann
 
+Wiederholte Supabase-Auth-Ereignisse für denselben Nutzer, etwa `SIGNED_IN` oder `TOKEN_REFRESHED` beim Fokuswechsel eines Browser-Tabs, dürfen weder das React-Sessionobjekt ersetzen noch das Profil erneut laden. Dadurch darf die geschützte App beim Zurückwechseln nicht neu rendern oder in den globalen Ladebildschirm springen. Änderungen am Nutzer sowie Abmeldung und Kontowechsel werden weiterhin übernommen.
+
+Der globale Ladebildschirm in `src/app/_layout.tsx` ist nur für die initiale Sitzung beziehungsweise das erste noch nicht vorhandene Profil vorgesehen. Eine spätere Profilaktualisierung läuft mit dem bestehenden Profil im Hintergrund und darf die aktuelle Route nicht ausblenden.
+
 Beim Registrieren schreibt die App `display_name` in `user_metadata`. Der Datenbanktrigger `handle_new_auth_user()` erstellt anschließend:
 
 1. einen Datensatz in `profiles`,
@@ -200,13 +205,17 @@ Ausnahme: absolute Live-Terminzeiten verwenden `timestamp with time zone`, damit
 
 ### Akademiestruktur
 
+#### `age_groups`
+
+Frei verwaltbare Altersgruppen mit Titel, optionalem Altersbereich und Reihenfolge. Admins pflegen sie im Curriculum. Kinder, Lernreisen und Gruppen referenzieren sie über `age_group_id`; fest codierte Altersgruppenwerte dürfen im Frontend nicht wieder eingeführt werden.
+
 #### `academy_years`
 
 Kurs- beziehungsweise Akademiezeiträume mit Start, Ende und Aktivstatus.
 
 #### `learning_journeys`
 
-Lernreisen nach Akademiejahr und Altersgruppe. Enthält Reihenfolge und Veröffentlichungsstatus.
+Lernreisen sind über das verpflichtende Fremdschlüsselfeld `academy_year_id` genau einem Akademiejahr und über `age_group_id` genau einer Altersgruppe zugeordnet. Die Oberfläche muss diese Zuordnung beim Anlegen vorauswählen, beim Bearbeiten änderbar machen und an der Lernreise sichtbar anzeigen. Außerdem enthält die Tabelle Reihenfolge und Veröffentlichungsstatus.
 
 #### `lessons`
 
@@ -218,6 +227,8 @@ Lektionen innerhalb einer Lernreise. Statuswerte:
 - `archived`
 
 `intro_text` enthält den verpflichtenden Einstieg vor der Live-Vorlesung.
+
+`is_released`, `released_at` und `released_by_profile_id` bilden die manuelle Admin-Freigabe ab. Der fachliche Status `published` allein macht eine Lektion für Familien noch nicht sichtbar. Wird die Lektion wieder zu Entwurf, Planung oder Archiv, sperrt die Datenbank sie und das zugehörige Quiz automatisch.
 
 #### `lesson_steps`
 
@@ -235,7 +246,7 @@ Strukturierte Schrittinhalte liegen im `jsonb`-Feld `content`. Die Tabelle bleib
 
 #### `lesson_quizzes`
 
-Pro Lektion kann ein Quiz mit Titel, Beschreibung, Bestehensgrenze und Veröffentlichungsstatus angelegt werden.
+Pro Lektion kann ein Quiz mit Titel, Beschreibung und Bestehensgrenze angelegt werden. `is_published`, `released_at` und `released_by_profile_id` bilden die separate Admin-Freigabe ab. Sie ist erst möglich, wenn die Lektion freigegeben und mindestens ein zugehöriger Live-Termin als `completed` markiert wurde.
 
 #### `quiz_questions` und `quiz_options`
 
@@ -253,10 +264,7 @@ Speichern Versuche, ausgewählte Antworten, Prozentwert und Bestanden-Status. Di
 
 #### `children`
 
-Kinderprofile eines Elternprofils. Altersgruppen:
-
-- `5-8`
-- `9-12`
+Kinderprofile eines Elternprofils mit einer Referenz `age_group_id` auf `age_groups`.
 
 #### `groups`
 
@@ -276,6 +284,8 @@ Zoom- oder andere Live-Termine pro Lektion und optional pro Gruppe. Enthält:
 - `meeting_url`
 - `replay_url`
 - Status `scheduled`, `live`, `completed` oder `cancelled`
+
+In der Oberfläche werden Terminzeiten nicht als kombinierter ISO-Text eingegeben. Web verwendet ein Kalenderfeld und native Uhrzeitfelder; iOS und Android verwenden den nativen DateTimePicker. Ein Live-Termin hat ein gemeinsames Datum sowie getrennte Felder für Beginn und Ende. Vor dem Schreiben werden diese lokalen Werte wieder in ISO-Zeitpunkte umgewandelt.
 
 Meeting-URLs dürfen nur für berechtigte Gruppen beziehungsweise Mitarbeitende lesbar sein.
 
@@ -342,6 +352,11 @@ academy_years
               │     └── quiz_attempts ── quiz_attempt_answers
               ├── child_lesson_progress
               └── submissions
+
+age_groups
+  ├── children
+  ├── groups
+  └── learning_journeys
 ```
 
 ## 9. RLS- und Sicherheitsmodell
@@ -387,6 +402,8 @@ Aktueller relevanter Stand:
 - `20260814064000_admin_account_management.sql` – Admin-Kontenübersicht und atomare Rollenwechsel
 - `20260814065000_academy_2026_27_curriculum.sql` – entfernt den Beispiel-Seed und legt das echte Curriculum 2026/27 mit vier Lernreisen und 40 Wochen pro Altersgruppe an
 - `20260814070000_lesson_live_quizzes.sql` – Einstiegstexte, normalisierte Multiple-Choice-Quizze, Versuche, RLS und serverseitige Auswertung
+- `20260815080000_manual_lesson_quiz_release.sql` – getrennte manuelle Admin-Freigaben für Lektion und Quiz
+- `20260815100000_dynamic_age_groups.sql` – frei verwaltbare Altersgruppen und Fremdschlüssel für Kinder, Gruppen und Lernreisen
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -407,7 +424,13 @@ Bereits funktional umgesetzt:
 - vollständiges leeres Datenbankschema mit RLS
 - responsive App-Shell für Web und Mobile
 - CRUD für Kinderprofile, Akademiejahre, Lernreisen, Lektionen, Gruppen und Live-Termine
+- Admin-CRUD für frei verwaltbare Altersgruppen im Curriculum
+- anklickbare Akademiejahre im Curriculum; beim Einstieg ist kein Jahr vorausgewählt und Lernreisen bleiben verborgen, bis ein Jahr bewusst geöffnet wurde. Danach werden sie nach geöffnetem Jahr und gewählter Altersgruppe gefiltert und direkt dort bearbeitet
 - dreistufiger Lektionseditor für Einstiegstext, geplanten Live-Zoom-Termin und separates Multiple-Choice-Quiz
+- kalendergestützte Datumswahl und getrennte Start-/Endzeit für Zoom-Termine auf Web, iOS und Android
+- klar sichtbare Admin-Freigabe direkt im Lektionseditor und in der Lektionsübersicht
+- Lektionsübersicht bildet die verpflichtende Hierarchie Akademiejahr → Lernreise → Lektion sichtbar ab und sortiert innerhalb der Lernreise nach `lessons.position`; filterbar nach Akademiejahr, Altersgruppe, Lernreise, Status und Suchtext
+- Admin-Sammelfreigabe für alle aktuell gefilterten oder alle in einer Lernreise enthaltenen, veröffentlichten und noch gesperrten Lektionen. Entwürfe dürfen dabei nicht automatisch veröffentlicht werden
 - Quiz-Editor mit beliebig vielen Fragen und Antwortmöglichkeiten, genau einer richtigen Antwort und einstellbarer Bestehensgrenze
 - geschützte Quizseite für Kinder mit serverseitiger Auswertung und Wiederholungsversuchen
 - Fortschritt pro Schritt und Lektion
@@ -420,6 +443,7 @@ Bereits funktional umgesetzt:
 - private Medien-Uploads, signierte Download-Links und Löschung in Supabase Storage
 - datengetriebene Eltern-, Kinder- und Team-Dashboards
 - separates Admin-Dashboard mit Systemkennzahlen und Admin-Schnellzugriffen
+- durchsuchbare Themen- und Quizverwaltung im Admin-Dashboard mit direktem Einstieg in die Lektionsbearbeitung sowie das Anlegen und Bearbeiten von Multiple-Choice-Fragen
 - geschützte Kontenübersicht mit E-Mail-Adressen und Rollenverwaltung
 
 Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:

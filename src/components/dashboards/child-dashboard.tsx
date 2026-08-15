@@ -56,7 +56,7 @@ export function ChildDashboard() {
   const journeys = data.journeys
     .filter(
       (journey) =>
-        journey.age_group === child.age_group &&
+        journey.age_group_id === child.age_group_id &&
         journey.is_published &&
         activeYearIds.includes(journey.academy_year_id)
     )
@@ -224,7 +224,7 @@ export function ChildDashboard() {
 
 function JourneyOrnament() {
   return (
-    <View style={styles.ornament} pointerEvents="none">
+    <View style={styles.ornament}>
       <View style={styles.orbitOuter} />
       <View style={styles.orbitInner} />
       <View style={[styles.orbitNode, styles.nodeOne]} />
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   heroActions: { flexDirection: 'row', gap: Space.sm, alignItems: 'center' },
   actionsColumn: { alignItems: 'stretch', flexDirection: 'column' },
   heroButton: { minWidth: 178 },
-  ornament: { width: 230, height: 230, alignSelf: 'center', marginRight: -22 },
+  ornament: { width: 230, height: 230, alignSelf: 'center', marginRight: -22, pointerEvents: 'none' },
   orbitOuter: { position: 'absolute', width: 218, height: 218, borderRadius: 109, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(167,213,190,0.5)' },
   orbitInner: { position: 'absolute', left: 38, top: 38, width: 142, height: 142, borderRadius: 71, borderWidth: 1, borderColor: 'rgba(242,201,109,0.42)' },
   ornamentCenter: { position: 'absolute', left: 75, top: 75, width: 72, height: 72, borderRadius: 25, backgroundColor: Palette.sun, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-6deg' }] },

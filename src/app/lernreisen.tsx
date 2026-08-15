@@ -27,7 +27,7 @@ export default function LearningJourneysScreen() {
   const activeYears = data.academyYears.filter((year) => year.is_active);
   const yearIds = activeYears.map((year) => year.id);
   const journeys = data.journeys
-    .filter((journey) => journey.is_published && journey.age_group === child.age_group && yearIds.includes(journey.academy_year_id))
+    .filter((journey) => journey.is_published && journey.age_group_id === child.age_group_id && yearIds.includes(journey.academy_year_id))
     .sort((a, b) => a.position - b.position);
   const journeyIds = journeys.map((journey) => journey.id);
   const allLessons = data.lessons.filter(

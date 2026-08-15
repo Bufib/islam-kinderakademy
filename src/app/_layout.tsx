@@ -1,5 +1,6 @@
-import { Stack } from 'expo-router';
+import { Href, Stack, usePathname, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -27,8 +28,24 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isAuthenticated, isInitializing, isProfileLoading, profile } = useAuth();
   const { activeRole } = useAcademy();
+  const pathname = usePathname();
+  const router = useRouter();
 
-  if (isInitializing || (isAuthenticated && isProfileLoading)) {
+  useEffect(() => {
+    const isPublicEntry =
+      pathname === '/' ||
+      pathname === '/login' ||
+      pathname === '/register' ||
+      pathname === '/passwort-vergessen';
+
+    if (!isInitializing && !isProfileLoading && isAuthenticated && isPublicEntry) {
+      router.replace('/dashboard' as Href);
+    }
+  }, [isAuthenticated, isInitializing, isProfileLoading, pathname, router]);
+
+  const isLoadingInitialProfile = isAuthenticated && isProfileLoading && !profile;
+
+  if (isInitializing || isLoadingInitialProfile) {
     return (
       <View style={styles.loadingScreen}>
         <BrandMark />

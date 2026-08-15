@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { AppState, Platform } from 'react-native';
@@ -90,10 +91,32 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [isInitializing, setIsInitializing] = useState(Boolean(supabase));
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const sessionRef = useRef<Session | null>(null);
+  const profileUserIdRef = useRef<string | null>(null);
+  const profileRequestIdRef = useRef(0);
+
+  const updateSession = useCallback((nextSession: Session | null, force = false) => {
+    const currentSession = sessionRef.current;
+    const hasSameUser =
+      Boolean(currentSession) === Boolean(nextSession) &&
+      currentSession?.user.id === nextSession?.user.id;
+
+    // Supabase sendet beim Zurückkehren in einen Browser-Tab erneut SIGNED_IN
+    // beziehungsweise TOKEN_REFRESHED. Für denselben Nutzer muss deshalb nicht
+    // der gesamte React-Kontext und damit die sichtbare App neu gerendert werden.
+    if (!force && hasSameUser) return;
+
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+  }, []);
 
   const loadProfile = useCallback(async (user: User | null) => {
+    const requestId = ++profileRequestIdRef.current;
+    profileUserIdRef.current = user?.id ?? null;
+
     if (!supabase || !user) {
       setProfile(null);
+      setIsProfileLoading(false);
       return;
     }
 
@@ -111,6 +134,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
+      if (requestId !== profileRequestIdRef.current) return;
+
       if (profileError || !profileRow) {
         setProfile(fallback);
         return;
@@ -121,6 +146,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         .select('role')
         .eq('profile_id', profileRow.id);
 
+      if (requestId !== profileRequestIdRef.current) return;
+
       setProfile({
         id: profileRow.id,
         displayName: profileRow.display_name?.trim() || fallback.displayName,
@@ -128,9 +155,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         role: resolveRole(roleRows ?? []),
       });
     } catch {
-      setProfile(fallback);
+      if (requestId === profileRequestIdRef.current) setProfile(fallback);
     } finally {
-      setIsProfileLoading(false);
+      if (requestId === profileRequestIdRef.current) setIsProfileLoading(false);
     }
   }, []);
 
@@ -141,23 +168,31 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      setSession(data.session);
+      updateSession(data.session);
       setIsInitializing(false);
-      void loadProfile(data.session?.user ?? null);
+      const nextUser = data.session?.user ?? null;
+      if (profileUserIdRef.current !== (nextUser?.id ?? null)) void loadProfile(nextUser);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
-      setSession(nextSession);
+      const sessionDetailsChanged =
+        event === 'USER_UPDATED' ||
+        event === 'PASSWORD_RECOVERY' ||
+        event === 'MFA_CHALLENGE_VERIFIED';
+      updateSession(nextSession, sessionDetailsChanged);
       setIsInitializing(false);
-      void loadProfile(nextSession?.user ?? null);
+      const nextUser = nextSession?.user ?? null;
+      const shouldReloadProfile =
+        event === 'USER_UPDATED' || profileUserIdRef.current !== (nextUser?.id ?? null);
+      if (shouldReloadProfile) void loadProfile(nextUser);
     });
 
     return () => {
       active = false;
       data.subscription.unsubscribe();
     };
-  }, [loadProfile]);
+  }, [loadProfile, updateSession]);
 
   useEffect(() => {
     const client = supabase;

@@ -177,7 +177,8 @@ export function PageScaffold({
     <ScrollView
       style={styles.pageScroll}
       contentContainerStyle={[styles.pageScrollContent, compact && styles.pageScrollContentCompact]}
-      showsVerticalScrollIndicator={false}>
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator>
       <View style={styles.pageInner}>
         {(title || eyebrow || description || action) && (
           <View style={[styles.pageHeader, compact && styles.pageHeaderCompact]}>
@@ -329,15 +330,15 @@ export function Field({ label, helper, style, multiline, ...props }: FieldProps)
   );
 }
 
-type SegmentedOption<T extends string> = { value: T; label: string };
+type SegmentedOption<T extends string | number> = { value: T; label: string };
 
-type SegmentedControlProps<T extends string> = {
+type SegmentedControlProps<T extends string | number> = {
   options: SegmentedOption<T>[];
   value: T;
   onChange: (value: T) => void;
 };
 
-export function SegmentedControl<T extends string>({
+export function SegmentedControl<T extends string | number>({
   options,
   value,
   onChange,
@@ -424,10 +425,7 @@ const styles = StyleSheet.create({
   paperBorder: {
     borderWidth: 1,
     borderColor: Palette.line,
-    shadowColor: '#143834',
-    shadowOpacity: 0.035,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
+    boxShadow: '0 5px 12px rgba(20, 56, 52, 0.035)',
   },
   button: {
     minHeight: 48,
@@ -464,6 +462,7 @@ const styles = StyleSheet.create({
   },
   pageScroll: {
     flex: 1,
+    minHeight: 0,
     width: '100%',
     maxWidth: '100%',
     backgroundColor: Palette.cream,

@@ -33,7 +33,12 @@ export default function LoginScreen() {
     const result = await signIn(normalizedEmail, password);
     setSubmitting(false);
 
-    if (result.error) setError(translateAuthError(result.error));
+    if (result.error) {
+      setError(translateAuthError(result.error));
+      return;
+    }
+
+    router.replace('/dashboard' as Href);
   }
 
   return (

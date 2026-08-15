@@ -108,19 +108,21 @@ export function ChoiceChips<T extends string | number>({
   value,
   onChange,
   allowEmpty = false,
+  emptyLabel = 'Keine',
 }: {
   label: string;
   options: { value: T; label: string }[];
   value: T | null;
   onChange: (value: T | null) => void;
   allowEmpty?: boolean;
+  emptyLabel?: string;
 }) {
   return (
     <View style={styles.choiceGroup}>
       <AppText variant="label">{label}</AppText>
       <View style={styles.choiceList}>
         {allowEmpty && (
-          <ChoiceChip label="Keine" selected={value === null} onPress={() => onChange(null)} />
+          <ChoiceChip label={emptyLabel} selected={value === null} onPress={() => onChange(null)} />
         )}
         {options.map((option) => (
           <ChoiceChip
@@ -261,10 +263,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: Radius.xLarge,
     backgroundColor: Palette.paper,
-    shadowColor: Palette.ink,
-    shadowOpacity: 0.2,
-    shadowRadius: 32,
-    shadowOffset: { width: 0, height: 16 },
+    boxShadow: '0 16px 32px rgba(23, 61, 58, 0.2)',
   },
   dialogCompact: { maxHeight: '96%' },
   dialogHeader: {

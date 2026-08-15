@@ -4,6 +4,7 @@ import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { ChoiceChips, DataLoading, ErrorBanner } from '@/components/ui/data-ui';
+import { DateField, TimeField } from '@/components/ui/date-time-fields';
 import {
   ActionButton,
   AppText,
@@ -15,18 +16,26 @@ import {
 } from '@/components/ui/primitives';
 import { Layout, Palette, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
-import { deleteRecord, saveLesson } from '@/lib/academy-api';
+import { useAuth } from '@/context/auth-context';
+import { deleteRecord, saveLesson, setLessonRelease } from '@/lib/academy-api';
 import {
   AcademyData,
   LessonRow,
   LessonStatus,
   LiveSessionRow,
 } from '@/types/database';
-import { apiErrorMessage, parseDateTimeInput, toDateTimeInput } from '@/utils/format';
+import { confirmAction } from '@/utils/feedback';
+import {
+  apiErrorMessage,
+  combineLocalDateTime,
+  toLocalDateInput,
+  toLocalTimeInput,
+} from '@/utils/format';
 
 export default function LessonEditorScreen() {
-  const params = useLocalSearchParams<{ lessonId?: string }>();
+  const params = useLocalSearchParams<{ lessonId?: string; returnTo?: string }>();
   const lessonId = params.lessonId ? Number(params.lessonId) : null;
+  const returnPath = params.returnTo === 'dashboard' ? '/dashboard' : '/lektionen';
   const { data, isLoading, error } = useAcademyData();
   const lesson = lessonId ? data.lessons.find((entry) => entry.id === lessonId) : null;
 
@@ -42,14 +51,31 @@ export default function LessonEditorScreen() {
     );
   }
 
-  return <LessonEditor key={lesson?.id ?? 'new'} data={data} initialLesson={lesson ?? null} />;
+  return (
+    <LessonEditor
+      key={lesson?.id ?? 'new'}
+      data={data}
+      initialLesson={lesson ?? null}
+      returnPath={returnPath}
+    />
+  );
 }
 
-function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesson: LessonRow | null }) {
+function LessonEditor({
+  data,
+  initialLesson,
+  returnPath,
+}: {
+  data: AcademyData;
+  initialLesson: LessonRow | null;
+  returnPath: '/dashboard' | '/lektionen';
+}) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
   const { execute } = useAcademyData();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const existingSession = initialLesson
     ? data.liveSessions.find((session) => session.lesson_id === initialLesson.id) ?? null
     : null;
@@ -69,10 +95,12 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
   const [hasLiveSession, setHasLiveSession] = useState(Boolean(existingSession));
   const [liveGroupId, setLiveGroupId] = useState<number | null>(existingSession?.group_id ?? null);
   const [liveTitle, setLiveTitle] = useState(existingSession?.title ?? '');
-  const [liveStartsAt, setLiveStartsAt] = useState(toDateTimeInput(existingSession?.starts_at));
-  const [liveEndsAt, setLiveEndsAt] = useState(toDateTimeInput(existingSession?.ends_at));
+  const [liveDate, setLiveDate] = useState(toLocalDateInput(existingSession?.starts_at));
+  const [liveStartTime, setLiveStartTime] = useState(toLocalTimeInput(existingSession?.starts_at) || '17:00');
+  const [liveEndTime, setLiveEndTime] = useState(toLocalTimeInput(existingSession?.ends_at) || '18:00');
   const [meetingUrl, setMeetingUrl] = useState(existingSession?.meeting_url ?? '');
   const [saving, setSaving] = useState(false);
+  const [releasing, setReleasing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const effectiveJourneyId = journeyId ?? data.journeys[0]?.id ?? null;
@@ -85,10 +113,10 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
 
     let liveSession: LiveSessionRow | null | undefined = undefined;
     if (hasLiveSession) {
-      const startsAt = parseDateTimeInput(liveStartsAt);
-      const endsAt = parseDateTimeInput(liveEndsAt);
+      const startsAt = combineLocalDateTime(liveDate, liveStartTime);
+      const endsAt = combineLocalDateTime(liveDate, liveEndTime);
       if (!startsAt || !endsAt || endsAt <= startsAt) {
-        setFormError('Für den Live-Termin werden eine gültige Start- und Endzeit benötigt.');
+        setFormError('Für den Live-Termin werden ein Datum sowie gültige Start- und Endzeiten benötigt.');
         return;
       }
       liveSession = {
@@ -136,11 +164,32 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
             : null,
         });
       });
-      router.replace('/lektionen');
+      router.replace(returnPath);
     } catch (reason) {
       setFormError(apiErrorMessage(reason));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleRelease() {
+    if (!initialLesson || !isAdmin) return;
+    if (initialLesson.is_released) {
+      const confirmed = await confirmAction(
+        'Lektion sperren?',
+        'Die Lektion und das zugehörige Quiz sind danach für Familien nicht mehr sichtbar.'
+      );
+      if (!confirmed) return;
+    }
+
+    setReleasing(true);
+    setFormError(null);
+    try {
+      await execute(() => setLessonRelease(initialLesson.id, !initialLesson.is_released));
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setReleasing(false);
     }
   }
 
@@ -176,7 +225,7 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
                 onChange={setJourneyId}
                 options={data.journeys.map((journey) => ({
                   value: journey.id,
-                  label: `${journey.title} · ${journey.age_group}`,
+                  label: `${journey.title} · ${data.ageGroups.find((group) => group.id === journey.age_group_id)?.title ?? 'Ohne Altersgruppe'}`,
                 }))}
               />
               <Field label="Kurzbeschreibung" placeholder="Optionale Beschreibung" multiline value={description} onChangeText={setDescription} />
@@ -234,8 +283,11 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
                     onChange={setLiveGroupId}
                     options={data.groups.map((group) => ({ value: group.id, label: group.name }))}
                   />
-                  <Field label="Beginn" placeholder="2026-09-10T17:00" value={liveStartsAt} onChangeText={setLiveStartsAt} />
-                  <Field label="Ende" placeholder="2026-09-10T17:45" value={liveEndsAt} onChangeText={setLiveEndsAt} />
+                  <DateField label="Datum" value={liveDate} onChange={setLiveDate} />
+                  <View style={styles.formRow}>
+                    <View style={styles.formHalf}><TimeField label="Beginn" value={liveStartTime} onChange={setLiveStartTime} /></View>
+                    <View style={styles.formHalf}><TimeField label="Ende" value={liveEndTime} onChange={setLiveEndTime} /></View>
+                  </View>
                   <Field label="Zoom-Zugang" placeholder="https://zoom.us/…" value={meetingUrl} onChangeText={setMeetingUrl} autoCapitalize="none" />
                 </>
               )}
@@ -261,7 +313,11 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
                 label={existingQuiz ? 'Quiz bearbeiten' : 'Quiz anlegen'}
                 icon="arrow"
                 variant="secondary"
-                onPress={() => router.push(`/quiz-bearbeiten?lessonId=${initialLesson.id}` as Href)}
+                onPress={() =>
+                  router.push(
+                    `/quiz-bearbeiten?lessonId=${initialLesson.id}${returnPath === '/dashboard' ? '&returnTo=dashboard' : ''}` as Href
+                  )
+                }
               />
             ) : (
               <AppText color={Palette.inkSoft}>Speichere zuerst die Lektion. Anschließend kannst du die Quizfragen anlegen.</AppText>
@@ -271,7 +327,7 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
 
         <View style={styles.sideColumn}>
           <Card style={styles.statusCard}>
-            <SectionHeader title="Status" />
+            <SectionHeader title="Status & Freigabe" />
             <ChoiceChips
               label="Veröffentlichung"
               value={status}
@@ -284,6 +340,40 @@ function LessonEditor({ data, initialLesson }: { data: AcademyData; initialLesso
               ]}
             />
             <Field label="Veröffentlichungszeit (optional)" placeholder="2026-09-01T08:00" value={publishAt} onChangeText={setPublishAt} />
+            <View style={styles.releaseBox}>
+              <Pill tone={initialLesson?.is_released ? 'mint' : 'neutral'}>
+                {initialLesson?.is_released ? 'Für Familien freigegeben' : 'Für Familien gesperrt'}
+              </Pill>
+              {!initialLesson ? (
+                <AppText variant="small" color={Palette.inkSoft}>Speichere die Lektion zuerst als Entwurf.</AppText>
+              ) : isAdmin ? (
+                <>
+                  <ActionButton
+                    label={
+                      releasing
+                        ? 'Freigabe wird geändert …'
+                        : initialLesson.is_released
+                          ? 'Lektion wieder sperren'
+                          : 'Lektion jetzt freigeben'
+                    }
+                    icon={initialLesson.is_released ? 'close' : 'check'}
+                    disabled={
+                      releasing ||
+                      status !== initialLesson.status ||
+                      (!initialLesson.is_released && initialLesson.status !== 'published')
+                    }
+                    onPress={() => void toggleRelease()}
+                  />
+                  {status !== initialLesson.status ? (
+                    <AppText variant="small" color={Palette.muted}>Speichere zuerst deine Statusänderung.</AppText>
+                  ) : !initialLesson.is_released && initialLesson.status !== 'published' ? (
+                    <AppText variant="small" color={Palette.muted}>Setze den Status auf „Veröffentlicht“, speichere und gib die Lektion anschließend hier frei.</AppText>
+                  ) : null}
+                </>
+              ) : (
+                <AppText variant="small" color={Palette.inkSoft}>Nur Admins können Lektionen für Familien freigeben.</AppText>
+              )}
+            </View>
           </Card>
 
           <Card tone="mint" style={styles.mediaCard}>
@@ -306,11 +396,14 @@ const styles = StyleSheet.create({
   mainColumn: { flex: 1.45, minWidth: 0, gap: Space.xl },
   sideColumn: { flex: 0.7, minWidth: 300, gap: Space.lg },
   formStack: { gap: Space.lg, marginTop: Space.xl },
+  formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },
+  formHalf: { flex: 1, minWidth: 180 },
   stepCard: { gap: Space.lg, padding: Space.lg },
   stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
   stepIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   stepCopy: { flex: 1, gap: 2 },
   statusCard: { gap: Space.lg },
+  releaseBox: { gap: Space.sm, alignItems: 'flex-start' },
   mediaCard: { gap: Space.md },
   mediaIcon: { width: 50, height: 50, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.65)', alignItems: 'center', justifyContent: 'center' },
 });

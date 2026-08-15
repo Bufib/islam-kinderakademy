@@ -34,7 +34,7 @@ export function ParentDashboard() {
   const nextSession = upcomingSessions[0];
   const openQuizzes = data.children.reduce((count, child) => {
     const journeyIds = data.journeys
-      .filter((journey) => journey.age_group === child.age_group && journey.is_published)
+      .filter((journey) => journey.age_group_id === child.age_group_id && journey.is_published)
       .map((journey) => journey.id);
     const lessonIds = data.lessons
       .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
@@ -84,7 +84,12 @@ export function ParentDashboard() {
                   <View key={child.id} style={styles.childRow}>
                     <View style={styles.childAvatar}><AppText variant="bodyStrong">{child.display_name.charAt(0).toUpperCase()}</AppText></View>
                     <View style={styles.childCopy}>
-                      <View style={styles.titleLine}><AppText variant="bodyStrong">{child.display_name}</AppText><Pill>{child.age_group}</Pill></View>
+                      <View style={styles.titleLine}>
+                        <AppText variant="bodyStrong">{child.display_name}</AppText>
+                        <Pill>
+                          {data.ageGroups.find((group) => group.id === child.age_group_id)?.title ?? 'Ohne Altersgruppe'}
+                        </Pill>
+                      </View>
                       <ProgressBar value={percent} />
                       <AppText variant="small" color={Palette.muted}>{percent}% Fortschritt</AppText>
                     </View>

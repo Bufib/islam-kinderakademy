@@ -2,6 +2,7 @@ import { Href, usePathname, useRouter } from 'expo-router';
 import { PropsWithChildren, useMemo } from 'react';
 import {
   Pressable,
+  ScrollView,
   StyleSheet,
   useWindowDimensions,
   View,
@@ -196,50 +197,55 @@ function Sidebar({
 }) {
   return (
     <View style={styles.sidebar}>
-      <BrandMark inverse />
+      <ScrollView
+        style={styles.sidebarScroll}
+        contentContainerStyle={styles.sidebarContent}
+        showsVerticalScrollIndicator>
+        <BrandMark inverse />
 
-      <View style={styles.sidebarNav}>
-        <AppText variant="label" color={Palette.mintStrong} style={styles.navLabel}>
-          Navigation
-        </AppText>
-        {navItems.map((item) => (
-          <NavigationLink key={item.href} item={item} active={isPathActive(pathname, item.href)} />
-        ))}
-      </View>
-
-      <View style={styles.sidebarBottom}>
-        <View style={styles.prototypeNote}>
-          <View style={styles.prototypeIcon}>
-            <AppIcon name="lock" size={17} color={Palette.sun} />
-          </View>
-          <View style={styles.prototypeCopy}>
-            <AppText variant="small" color={Palette.white} style={styles.prototypeTitle}>
-              Geschützter Bereich
-            </AppText>
-            <AppText variant="small" color={Palette.mintStrong}>
-              Mit Supabase verbunden
-            </AppText>
-          </View>
+        <View style={styles.sidebarNav}>
+          <AppText variant="label" color={Palette.mintStrong} style={styles.navLabel}>
+            Navigation
+          </AppText>
+          {navItems.map((item) => (
+            <NavigationLink key={item.href} item={item} active={isPathActive(pathname, item.href)} />
+          ))}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={onOpenAccount}
-          style={({ pressed }) => [styles.sidebarRole, pressed && styles.pressed]}>
-          <View style={styles.roleAvatar}>
-            <AppIcon name={meta.icon} size={20} color={Palette.ink} />
+        <View style={styles.sidebarBottom}>
+          <View style={styles.prototypeNote}>
+            <View style={styles.prototypeIcon}>
+              <AppIcon name="lock" size={17} color={Palette.sun} />
+            </View>
+            <View style={styles.prototypeCopy}>
+              <AppText variant="small" color={Palette.white} style={styles.prototypeTitle}>
+                Geschützter Bereich
+              </AppText>
+              <AppText variant="small" color={Palette.mintStrong}>
+                Mit Supabase verbunden
+              </AppText>
+            </View>
           </View>
-          <View style={styles.roleCopy}>
-            <AppText variant="bodyStrong" color={Palette.white} numberOfLines={1}>
-              {meta.label}
-            </AppText>
-            <AppText variant="small" color={Palette.mintStrong} numberOfLines={1}>
-              {accountLabel}
-            </AppText>
-          </View>
-          <AppIcon name="more" size={20} color={Palette.mintStrong} />
-        </Pressable>
-      </View>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpenAccount}
+            style={({ pressed }) => [styles.sidebarRole, pressed && styles.pressed]}>
+            <View style={styles.roleAvatar}>
+              <AppIcon name={meta.icon} size={20} color={Palette.ink} />
+            </View>
+            <View style={styles.roleCopy}>
+              <AppText variant="bodyStrong" color={Palette.white} numberOfLines={1}>
+                {meta.label}
+              </AppText>
+              <AppText variant="small" color={Palette.mintStrong} numberOfLines={1}>
+                {accountLabel}
+              </AppText>
+            </View>
+            <AppIcon name="more" size={20} color={Palette.mintStrong} />
+          </Pressable>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -372,14 +378,27 @@ const styles = StyleSheet.create({
   },
   app: {
     flex: 1,
+    minHeight: 0,
     width: '100%',
     maxWidth: '100%',
     flexDirection: 'row',
     backgroundColor: Palette.cream,
+    overflow: 'hidden',
   },
   sidebar: {
     width: Layout.sidebarWidth,
+    minWidth: Layout.sidebarWidth,
+    maxWidth: Layout.sidebarWidth,
+    flexShrink: 0,
     backgroundColor: Palette.forestDark,
+    overflow: 'hidden',
+  },
+  sidebarScroll: {
+    flex: 1,
+    width: '100%',
+  },
+  sidebarContent: {
+    flexGrow: 1,
     paddingHorizontal: Space.xl,
     paddingTop: Space.xl,
     paddingBottom: Space.lg,
@@ -471,13 +490,17 @@ const styles = StyleSheet.create({
   },
   main: {
     flex: 1,
+    minHeight: 0,
     minWidth: 0,
     maxWidth: '100%',
+    overflow: 'hidden',
   },
   routeContent: {
     flex: 1,
+    minHeight: 0,
     minWidth: 0,
     maxWidth: '100%',
+    overflow: 'hidden',
   },
   topBar: {
     height: 68,
@@ -534,10 +557,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.paper,
     borderTopWidth: 1,
     borderTopColor: Palette.line,
-    shadowColor: '#173D3A',
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -4 },
+    boxShadow: '0 -4px 18px rgba(23, 61, 58, 0.08)',
     zIndex: 10,
   },
   mobileNavItem: {
@@ -573,10 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.paper,
     borderRadius: Radius.xLarge,
     padding: Space.xl,
-    shadowColor: Palette.ink,
-    shadowOpacity: 0.18,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 14 },
+    boxShadow: '0 14px 30px rgba(23, 61, 58, 0.18)',
   },
   notificationCard: {
     width: '100%',

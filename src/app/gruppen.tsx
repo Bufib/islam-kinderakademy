@@ -23,14 +23,14 @@ import {
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
 import { createRecord, deleteRecord, replaceGroupMembers, updateRecord } from '@/lib/academy-api';
-import { AgeGroup, GroupRow } from '@/types/database';
+import { GroupRow } from '@/types/database';
 import { confirmAction } from '@/utils/feedback';
 import { apiErrorMessage } from '@/utils/format';
 
 type GroupForm = {
   name: string;
   yearId: number | null;
-  ageGroup: AgeGroup;
+  ageGroupId: number | null;
   teacherProfileId: number | null;
   childIds: number[];
 };
@@ -39,7 +39,7 @@ export default function GroupsScreen() {
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<GroupRow | null>(null);
-  const [form, setForm] = useState<GroupForm>({ name: '', yearId: null, ageGroup: '5-8', teacherProfileId: null, childIds: [] });
+  const [form, setForm] = useState<GroupForm>({ name: '', yearId: null, ageGroupId: null, teacherProfileId: null, childIds: [] });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -59,14 +59,14 @@ export default function GroupsScreen() {
         ? {
             name: group.name,
             yearId: group.academy_year_id,
-            ageGroup: group.age_group,
+            ageGroupId: group.age_group_id,
             teacherProfileId: group.teacher_profile_id,
             childIds: data.groupMembers.filter((member) => member.group_id === group.id).map((member) => member.child_id),
           }
         : {
             name: '',
             yearId: data.academyYears.find((year) => year.is_active)?.id ?? data.academyYears[0]?.id ?? null,
-            ageGroup: '5-8',
+            ageGroupId: data.ageGroups[0]?.id ?? null,
             teacherProfileId: null,
             childIds: [],
           }
@@ -76,8 +76,8 @@ export default function GroupsScreen() {
   }
 
   async function save() {
-    if (!form.name.trim() || !form.yearId) {
-      setFormError('Name und Akademiejahr sind erforderlich.');
+    if (!form.name.trim() || !form.yearId || !form.ageGroupId) {
+      setFormError('Name, Akademiejahr und Altersgruppe sind erforderlich.');
       return;
     }
     setSaving(true);
@@ -87,7 +87,7 @@ export default function GroupsScreen() {
         const values = {
           name: form.name.trim(),
           academy_year_id: form.yearId!,
-          age_group: form.ageGroup,
+          age_group_id: form.ageGroupId!,
           teacher_profile_id: form.teacherProfileId,
         };
         const group = editing
@@ -119,9 +119,10 @@ export default function GroupsScreen() {
       eyebrow="Team-Bereich"
       title="Gruppen"
       description="Kinder, Lehrkräfte und Unterrichtstermine werden hier zugeordnet."
-      action={<ActionButton label="Gruppe anlegen" icon="add" disabled={data.academyYears.length === 0} onPress={() => openGroup()} />}>
+      action={<ActionButton label="Gruppe anlegen" icon="add" disabled={data.academyYears.length === 0 || data.ageGroups.length === 0} onPress={() => openGroup()} />}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       {data.academyYears.length === 0 && <ErrorBanner message="Lege im Curriculum zuerst ein Akademiejahr an." />}
+      {data.ageGroups.length === 0 && <ErrorBanner message="Lege im Curriculum zuerst eine Altersgruppe an." />}
       <View style={styles.statsGrid}>
         <StatCard icon="groups" value={String(data.groups.length)} label="Gruppen" tone="mint" />
         <StatCard icon="children" value={String(new Set(data.groupMembers.map((member) => member.child_id)).size)} label="Zugeordnete Kinder" tone="sun" />
@@ -145,13 +146,14 @@ export default function GroupsScreen() {
               const teacher = data.profiles.find((entry) => entry.id === group.teacher_profile_id);
               const members = data.groupMembers.filter((member) => member.group_id === group.id);
               const sessions = data.liveSessions.filter((session) => session.group_id === group.id);
+              const ageGroup = data.ageGroups.find((entry) => entry.id === group.age_group_id);
               return (
                 <View key={group.id} style={styles.groupRow}>
                   <View style={styles.groupIcon}><AppIcon name="groups" size={23} color={Palette.forest} /></View>
                   <View style={styles.groupCopy}>
                     <View style={styles.titleLine}>
                       <AppText variant="bodyStrong">{group.name}</AppText>
-                      <Pill tone="mint">{group.age_group === '5-8' ? '5–8 Jahre' : '9–12 Jahre'}</Pill>
+                      <Pill tone="mint">{ageGroup?.title ?? 'Unbekannte Altersgruppe'}</Pill>
                     </View>
                     <AppText variant="small" color={Palette.inkSoft}>
                       {year?.title ?? 'Unbekanntes Jahr'} · {members.length} Kinder · {sessions.length} Termine
@@ -184,9 +186,15 @@ export default function GroupsScreen() {
         />
         <ChoiceChips
           label="Altersgruppe"
-          value={form.ageGroup}
-          onChange={(ageGroup) => ageGroup && setForm((current) => ({ ...current, ageGroup, childIds: current.childIds.filter((id) => data.children.find((child) => child.id === id)?.age_group === ageGroup) }))}
-          options={[{ value: '5-8', label: '5–8 Jahre' }, { value: '9-12', label: '9–12 Jahre' }]}
+          value={form.ageGroupId}
+          onChange={(ageGroupId) => setForm((current) => ({
+            ...current,
+            ageGroupId,
+            childIds: current.childIds.filter(
+              (id) => data.children.find((child) => child.id === id)?.age_group_id === ageGroupId
+            ),
+          }))}
+          options={data.ageGroups.map((ageGroup) => ({ value: ageGroup.id, label: ageGroup.title }))}
         />
         <ChoiceChips
           label="Lehrkraft"
@@ -199,9 +207,9 @@ export default function GroupsScreen() {
           label="Kinder"
           values={form.childIds}
           onChange={(childIds) => setForm((current) => ({ ...current, childIds }))}
-          options={data.children.filter((child) => child.age_group === form.ageGroup).map((child) => ({ value: child.id, label: child.display_name }))}
+          options={data.children.filter((child) => child.age_group_id === form.ageGroupId).map((child) => ({ value: child.id, label: child.display_name }))}
         />
-        {data.children.filter((child) => child.age_group === form.ageGroup).length === 0 && (
+        {data.children.filter((child) => child.age_group_id === form.ageGroupId).length === 0 && (
           <AppText color={Palette.muted}>Für diese Altersgruppe sind noch keine Kinderprofile vorhanden.</AppText>
         )}
       </FormDialog>

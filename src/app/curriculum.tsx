@@ -23,8 +23,9 @@ import {
 } from '@/components/ui/primitives';
 import { Palette, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
+import { useAuth } from '@/context/auth-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
-import { AcademyYearRow, AgeGroup, LearningJourneyRow } from '@/types/database';
+import { AcademyYearRow, AgeGroupRow, LearningJourneyRow } from '@/types/database';
 import { apiErrorMessage, formatDate } from '@/utils/format';
 import { confirmAction } from '@/utils/feedback';
 
@@ -33,18 +34,23 @@ type JourneyForm = {
   title: string;
   description: string;
   yearId: number | null;
-  ageGroup: AgeGroup;
+  ageGroupId: number | null;
   published: boolean;
 };
+type AgeGroupForm = { title: string; minAge: string; maxAge: string };
 
 const emptyYear: YearForm = { title: '', startsOn: '', endsOn: '', active: false };
 
 export default function CurriculumScreen() {
   const router = useRouter();
+  const { profile } = useAuth();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
-  const [ageGroup, setAgeGroup] = useState<AgeGroup>('5-8');
+  const [ageGroupId, setAgeGroupId] = useState<number | null>(null);
+  const [selectedYearId, setSelectedYearId] = useState<number | null>(null);
+  const [ageGroupDialog, setAgeGroupDialog] = useState(false);
   const [yearDialog, setYearDialog] = useState(false);
   const [journeyDialog, setJourneyDialog] = useState(false);
+  const [editingAgeGroup, setEditingAgeGroup] = useState<AgeGroupRow | null>(null);
   const [editingYear, setEditingYear] = useState<AcademyYearRow | null>(null);
   const [editingJourney, setEditingJourney] = useState<LearningJourneyRow | null>(null);
   const [yearForm, setYearForm] = useState<YearForm>(emptyYear);
@@ -52,16 +58,40 @@ export default function CurriculumScreen() {
     title: '',
     description: '',
     yearId: null,
-    ageGroup: '5-8',
+    ageGroupId: null,
     published: false,
   });
+  const [ageGroupForm, setAgeGroupForm] = useState<AgeGroupForm>({ title: '', minAge: '', maxAge: '' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const isAdmin = profile?.role === 'admin';
+  const effectiveAgeGroupId = ageGroupId ?? data.ageGroups[0]?.id ?? null;
+  const activeAgeGroup = data.ageGroups.find((group) => group.id === effectiveAgeGroupId) ?? null;
+  const selectedYear =
+    data.academyYears.find((year) => year.id === selectedYearId) ?? null;
+  const effectiveYearId = selectedYear?.id ?? null;
 
   const visibleJourneys = useMemo(
-    () => data.journeys.filter((journey) => journey.age_group === ageGroup),
-    [ageGroup, data.journeys]
+    () =>
+      data.journeys.filter(
+        (journey) =>
+          journey.academy_year_id === effectiveYearId &&
+          journey.age_group_id === effectiveAgeGroupId
+      ),
+    [data.journeys, effectiveAgeGroupId, effectiveYearId]
   );
+
+  function openAgeGroup(ageGroup?: AgeGroupRow) {
+    setEditingAgeGroup(ageGroup ?? null);
+    setAgeGroupForm(
+      ageGroup
+        ? { title: ageGroup.title, minAge: String(ageGroup.min_age), maxAge: String(ageGroup.max_age) }
+        : { title: '', minAge: '', maxAge: '' }
+    );
+    setFormError(null);
+    setAgeGroupDialog(true);
+  }
 
   function openYear(year?: AcademyYearRow) {
     setEditingYear(year ?? null);
@@ -82,19 +112,60 @@ export default function CurriculumScreen() {
             title: journey.title,
             description: journey.description ?? '',
             yearId: journey.academy_year_id,
-            ageGroup: journey.age_group,
+            ageGroupId: journey.age_group_id,
             published: journey.is_published,
           }
         : {
             title: '',
             description: '',
-            yearId: data.academyYears.find((year) => year.is_active)?.id ?? data.academyYears[0]?.id ?? null,
-            ageGroup,
+            yearId: effectiveYearId,
+            ageGroupId: effectiveAgeGroupId,
             published: false,
           }
     );
     setFormError(null);
     setJourneyDialog(true);
+  }
+
+  async function saveAgeGroup() {
+    const minAge = Number(ageGroupForm.minAge);
+    const maxAge = Number(ageGroupForm.maxAge);
+    if (!ageGroupForm.title.trim()) {
+      setFormError('Eine Bezeichnung ist erforderlich.');
+      return;
+    }
+    if (
+      !Number.isInteger(minAge) ||
+      !Number.isInteger(maxAge) ||
+      minAge < 0 ||
+      maxAge > 99 ||
+      maxAge < minAge
+    ) {
+      setFormError('Gib ein gültiges Mindest- und Höchstalter ein.');
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    try {
+      const values = {
+        title: ageGroupForm.title.trim(),
+        min_age: minAge,
+        max_age: maxAge,
+        position: editingAgeGroup?.position ?? data.ageGroups.length,
+      };
+      const savedAgeGroup = await execute(() =>
+        editingAgeGroup
+          ? updateRecord('age_groups', editingAgeGroup.id, values)
+          : createRecord('age_groups', values)
+      );
+      setAgeGroupId(savedAgeGroup.id);
+      setAgeGroupDialog(false);
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveYear() {
@@ -122,11 +193,12 @@ export default function CurriculumScreen() {
         ends_on: yearForm.endsOn,
         is_active: yearForm.active,
       };
-      await execute(() =>
+      const savedYear = await execute(() =>
         editingYear
           ? updateRecord('academy_years', editingYear.id, values)
           : createRecord('academy_years', values)
       );
+      setSelectedYearId(savedYear.id);
       setYearDialog(false);
     } catch (reason) {
       setFormError(apiErrorMessage(reason));
@@ -136,8 +208,8 @@ export default function CurriculumScreen() {
   }
 
   async function saveJourney() {
-    if (!journeyForm.title.trim() || !journeyForm.yearId) {
-      setFormError('Titel und Akademiejahr sind erforderlich.');
+    if (!journeyForm.title.trim() || !journeyForm.yearId || !journeyForm.ageGroupId) {
+      setFormError('Titel, Akademiejahr und Altersgruppe sind erforderlich.');
       return;
     }
     setSaving(true);
@@ -145,21 +217,23 @@ export default function CurriculumScreen() {
     try {
       const siblingCount = data.journeys.filter(
         (journey) =>
-          journey.academy_year_id === journeyForm.yearId && journey.age_group === journeyForm.ageGroup
+          journey.academy_year_id === journeyForm.yearId && journey.age_group_id === journeyForm.ageGroupId
       ).length;
       const values = {
         academy_year_id: journeyForm.yearId,
-        age_group: journeyForm.ageGroup,
+        age_group_id: journeyForm.ageGroupId,
         title: journeyForm.title.trim(),
         description: journeyForm.description.trim() || null,
         position: editingJourney?.position ?? siblingCount,
         is_published: journeyForm.published,
       };
-      await execute(() =>
+      const savedJourney = await execute(() =>
         editingJourney
           ? updateRecord('learning_journeys', editingJourney.id, values)
           : createRecord('learning_journeys', values)
       );
+      setSelectedYearId(savedJourney.academy_year_id);
+      setAgeGroupId(savedJourney.age_group_id);
       setJourneyDialog(false);
     } catch (reason) {
       setFormError(apiErrorMessage(reason));
@@ -168,12 +242,34 @@ export default function CurriculumScreen() {
     }
   }
 
+  async function removeAgeGroup(ageGroup: AgeGroupRow) {
+    const confirmed = await confirmAction(
+      'Altersgruppe löschen?',
+      `„${ageGroup.title}“ kann nur gelöscht werden, wenn keine Kinder, Gruppen oder Lernreisen zugeordnet sind.`
+    );
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await execute(() => deleteRecord('age_groups', ageGroup.id));
+      if (effectiveAgeGroupId === ageGroup.id) setAgeGroupId(null);
+    } catch (reason) {
+      setActionError(apiErrorMessage(reason));
+    }
+  }
+
   async function removeYear(year: AcademyYearRow) {
     const confirmed = await confirmAction(
       'Akademiejahr löschen?',
       'Alle zugehörigen Lernreisen, Lektionen, Gruppen und Fortschrittsdaten werden mitgelöscht.'
     );
-    if (confirmed) await execute(() => deleteRecord('academy_years', year.id));
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await execute(() => deleteRecord('academy_years', year.id));
+      if (effectiveYearId === year.id) setSelectedYearId(null);
+    } catch (reason) {
+      setActionError(apiErrorMessage(reason));
+    }
   }
 
   async function removeJourney(journey: LearningJourneyRow) {
@@ -181,7 +277,13 @@ export default function CurriculumScreen() {
       'Lernreise löschen?',
       `„${journey.title}“ und alle enthaltenen Lektionen werden dauerhaft gelöscht.`
     );
-    if (confirmed) await execute(() => deleteRecord('learning_journeys', journey.id));
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await execute(() => deleteRecord('learning_journeys', journey.id));
+    } catch (reason) {
+      setActionError(apiErrorMessage(reason));
+    }
   }
 
   return (
@@ -191,34 +293,39 @@ export default function CurriculumScreen() {
       description="Akademiejahre, Lernreisen und Lektionen werden hier hierarchisch aufgebaut."
       action={
         <View style={styles.headerActions}>
+          {isAdmin && <ActionButton label="Altersgruppe" variant="secondary" icon="add" onPress={() => openAgeGroup()} />}
           <ActionButton label="Akademiejahr" variant="secondary" icon="add" onPress={() => openYear()} />
-          <ActionButton
-            label="Lernreise anlegen"
-            icon="add"
-            disabled={data.academyYears.length === 0}
-            onPress={() => openJourney()}
-          />
         </View>
       }>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
+      {actionError && <ErrorBanner message={actionError} />}
       <Card style={styles.toolbarCard}>
         <View style={styles.toolbarRow}>
           <View style={styles.toolbarCopy}>
             <AppText variant="bodyStrong">Altersgruppe</AppText>
             <AppText variant="small" color={Palette.inkSoft}>Inhalte werden getrennt gepflegt.</AppText>
           </View>
-          <SegmentedControl
-            value={ageGroup}
-            onChange={setAgeGroup}
-            options={[
-              { value: '5-8', label: '5–8 Jahre' },
-              { value: '9-12', label: '9–12 Jahre' },
-            ]}
-          />
+          {effectiveAgeGroupId ? (
+            <View style={styles.ageGroupControls}>
+              <SegmentedControl
+                value={effectiveAgeGroupId}
+                onChange={setAgeGroupId}
+                options={data.ageGroups.map((group) => ({ value: group.id, label: group.title }))}
+              />
+              {isAdmin && activeAgeGroup && (
+                <RowActions
+                  onEdit={() => openAgeGroup(activeAgeGroup)}
+                  onDelete={() => void removeAgeGroup(activeAgeGroup)}
+                />
+              )}
+            </View>
+          ) : (
+            <AppText color={Palette.muted}>Noch keine Altersgruppe angelegt.</AppText>
+          )}
         </View>
       </Card>
 
-      <SectionHeader title="Akademiejahre" description={`${data.academyYears.length} Zeiträume`} />
+      <SectionHeader title="Akademiejahre" description={`${data.academyYears.length} Zeiträume · Jahr anklicken, um seine Lernreisen zu öffnen`} />
       {isLoading && data.academyYears.length === 0 ? (
         <Card><DataLoading /></Card>
       ) : data.academyYears.length === 0 ? (
@@ -233,65 +340,101 @@ export default function CurriculumScreen() {
         </Card>
       ) : (
         <View style={styles.yearList}>
-          {data.academyYears.map((year) => (
-            <Card key={year.id} style={styles.yearCard}>
-              <View style={styles.nodeIcon}><AppIcon name="calendar" size={22} color={Palette.forest} /></View>
-              <View style={styles.nodeCopy}>
-                <View style={styles.titleLine}>
-                  <AppText variant="bodyStrong">{year.title}</AppText>
-                  <Pill tone={year.is_active ? 'mint' : 'neutral'}>{year.is_active ? 'Aktiv' : 'Inaktiv'}</Pill>
-                </View>
-                <AppText variant="small" color={Palette.inkSoft}>
-                  {formatDate(year.starts_on)} – {formatDate(year.ends_on)}
-                </AppText>
-              </View>
-              <RowActions onEdit={() => openYear(year)} onDelete={() => void removeYear(year)} />
-            </Card>
-          ))}
+          {data.academyYears.map((year) => {
+            const isSelected = year.id === effectiveYearId;
+            const journeyCount = data.journeys.filter(
+              (journey) =>
+                journey.academy_year_id === year.id &&
+                journey.age_group_id === effectiveAgeGroupId
+            ).length;
+            return (
+              <Card key={year.id} tone={isSelected ? 'sky' : 'paper'} style={[styles.yearCard, isSelected && styles.yearCardSelected]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${year.title} öffnen`}
+                  accessibilityState={{ selected: isSelected }}
+                  onPress={() => setSelectedYearId(year.id)}
+                  style={({ pressed }) => [styles.yearSelect, pressed && styles.pressed]}>
+                  <View style={[styles.nodeIcon, isSelected && styles.nodeIconSelected]}><AppIcon name="calendar" size={22} color={Palette.forest} /></View>
+                  <View style={styles.nodeCopy}>
+                    <View style={styles.titleLine}>
+                      <AppText variant="bodyStrong">{year.title}</AppText>
+                      <Pill tone={year.is_active ? 'mint' : 'neutral'}>{year.is_active ? 'Aktiv' : 'Inaktiv'}</Pill>
+                      {isSelected && <Pill tone="neutral">Geöffnet</Pill>}
+                    </View>
+                    <AppText variant="small" color={Palette.inkSoft}>
+                      {formatDate(year.starts_on)} – {formatDate(year.ends_on)} · {journeyCount} Lernreisen
+                    </AppText>
+                  </View>
+                  <AppIcon name="arrow" size={19} color={Palette.forest} />
+                </Pressable>
+                <RowActions onEdit={() => openYear(year)} onDelete={() => void removeYear(year)} />
+              </Card>
+            );
+          })}
         </View>
       )}
 
-      <SectionHeader
-        title={`Lernreisen · ${ageGroup === '5-8' ? '5–8' : '9–12'} Jahre`}
-        description={`${visibleJourneys.length} Lernreisen`}
-      />
-      <Card style={styles.treeCard}>
-        {visibleJourneys.length === 0 ? (
+      {selectedYear ? (
+        <>
+          <SectionHeader
+            title={`Lernreisen in ${selectedYear.title}`}
+            description={`${activeAgeGroup?.title ?? 'Ohne Altersgruppe'} · ${visibleJourneys.length} Lernreisen`}
+            action={
+              effectiveAgeGroupId ? (
+                <ActionButton label="Lernreise hinzufügen" icon="add" onPress={() => openJourney()} />
+              ) : undefined
+            }
+          />
+          <Card style={styles.treeCard}>
+            {visibleJourneys.length === 0 ? (
+              <EmptyState
+                compact
+                icon="curriculum"
+                title={`Noch keine Lernreisen in ${selectedYear.title}`}
+                description="Lege für das ausgewählte Jahr und die Altersgruppe eine Lernreise an."
+              />
+            ) : (
+              <View style={styles.journeyList}>
+                {visibleJourneys.map((journey, index) => {
+                  const lessonCount = data.lessons.filter((lesson) => lesson.learning_journey_id === journey.id).length;
+                  return (
+                    <View key={journey.id} style={styles.journeyRow}>
+                      <View style={styles.journeyNumber}><AppText variant="bodyStrong">{index + 1}</AppText></View>
+                      <View style={styles.nodeCopy}>
+                        <View style={styles.titleLine}>
+                          <AppText variant="bodyStrong">{journey.title}</AppText>
+                          <Pill tone="sky" icon="calendar">{selectedYear.title}</Pill>
+                          <Pill tone={journey.is_published ? 'mint' : 'sun'}>
+                            {journey.is_published ? 'Veröffentlicht' : 'Entwurf'}
+                          </Pill>
+                        </View>
+                        <AppText variant="small" color={Palette.inkSoft}>
+                          {lessonCount} Lektionen
+                        </AppText>
+                        {journey.description && <AppText color={Palette.inkSoft}>{journey.description}</AppText>}
+                      </View>
+                      <RowActions
+                        extra={<ActionButton label="Bearbeiten" icon="edit" compact variant="secondary" onPress={() => openJourney(journey)} />}
+                        onDelete={() => void removeJourney(journey)}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </Card>
+        </>
+      ) : (
+        <Card tone="sky">
           <EmptyState
             compact
-            icon="curriculum"
-            title="Noch keine Lernreisen"
-            description="Lege eine Lernreise an und ordne anschließend Lektionen zu."
-            actionLabel="Lernreise anlegen"
-            onAction={() => openJourney()}
+            icon="calendar"
+            title="Akademiejahr auswählen"
+            description="Klicke auf ein Akademiejahr. Erst danach werden seine Lernreisen angezeigt."
           />
-        ) : (
-          <View style={styles.journeyList}>
-            {visibleJourneys.map((journey, index) => {
-              const year = data.academyYears.find((entry) => entry.id === journey.academy_year_id);
-              const lessonCount = data.lessons.filter((lesson) => lesson.learning_journey_id === journey.id).length;
-              return (
-                <View key={journey.id} style={styles.journeyRow}>
-                  <View style={styles.journeyNumber}><AppText variant="bodyStrong">{index + 1}</AppText></View>
-                  <View style={styles.nodeCopy}>
-                    <View style={styles.titleLine}>
-                      <AppText variant="bodyStrong">{journey.title}</AppText>
-                      <Pill tone={journey.is_published ? 'mint' : 'sun'}>
-                        {journey.is_published ? 'Veröffentlicht' : 'Entwurf'}
-                      </Pill>
-                    </View>
-                    <AppText variant="small" color={Palette.inkSoft}>
-                      {year?.title ?? 'Ohne Zeitraum'} · {lessonCount} Lektionen
-                    </AppText>
-                    {journey.description && <AppText color={Palette.inkSoft}>{journey.description}</AppText>}
-                  </View>
-                  <RowActions onEdit={() => openJourney(journey)} onDelete={() => void removeJourney(journey)} />
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </Card>
+        </Card>
+      )}
 
       <Card tone="sun" style={styles.editorHint}>
         <View style={styles.hintIcon}><AppIcon name="lessons" size={23} color="#846211" /></View>
@@ -303,6 +446,40 @@ export default function CurriculumScreen() {
           <AppText variant="bodyStrong" color={Palette.forest}>Editor öffnen</AppText>
         </Pressable>
       </Card>
+
+      <FormDialog
+        visible={ageGroupDialog}
+        title={editingAgeGroup ? 'Altersgruppe bearbeiten' : 'Altersgruppe anlegen'}
+        description="Die Altersgruppe steht anschließend für Kinder, Gruppen und Lernreisen zur Verfügung."
+        saving={saving}
+        onClose={() => setAgeGroupDialog(false)}
+        onSave={() => void saveAgeGroup()}>
+        {formError && <ErrorBanner message={formError} />}
+        <Field
+          label="Bezeichnung"
+          placeholder="Zum Beispiel 13–15 Jahre"
+          value={ageGroupForm.title}
+          onChangeText={(title) => setAgeGroupForm((form) => ({ ...form, title }))}
+        />
+        <View style={styles.formRow}>
+          <View style={styles.formHalf}>
+            <Field
+              label="Mindestalter"
+              keyboardType="number-pad"
+              value={ageGroupForm.minAge}
+              onChangeText={(minAge) => setAgeGroupForm((form) => ({ ...form, minAge }))}
+            />
+          </View>
+          <View style={styles.formHalf}>
+            <Field
+              label="Höchstalter"
+              keyboardType="number-pad"
+              value={ageGroupForm.maxAge}
+              onChangeText={(maxAge) => setAgeGroupForm((form) => ({ ...form, maxAge }))}
+            />
+          </View>
+        </View>
+      </FormDialog>
 
       <FormDialog
         visible={yearDialog}
@@ -327,6 +504,11 @@ export default function CurriculumScreen() {
       <FormDialog
         visible={journeyDialog}
         title={editingJourney ? 'Lernreise bearbeiten' : 'Lernreise anlegen'}
+        description={
+          editingJourney
+            ? 'Jede Lernreise gehört verpflichtend zu genau einem Akademiejahr.'
+            : `Die neue Lernreise wird ${selectedYear?.title ?? 'dem ausgewählten Akademiejahr'} zugeordnet.`
+        }
         saving={saving}
         onClose={() => setJourneyDialog(false)}
         onSave={() => void saveJourney()}>
@@ -334,16 +516,16 @@ export default function CurriculumScreen() {
         <Field label="Titel" placeholder="Titel der Lernreise" value={journeyForm.title} onChangeText={(title) => setJourneyForm((form) => ({ ...form, title }))} />
         <Field label="Beschreibung" placeholder="Optional" multiline value={journeyForm.description} onChangeText={(description) => setJourneyForm((form) => ({ ...form, description }))} />
         <ChoiceChips
-          label="Akademiejahr"
+          label="Zugeordnetes Akademiejahr"
           value={journeyForm.yearId}
           onChange={(yearId) => setJourneyForm((form) => ({ ...form, yearId }))}
           options={data.academyYears.map((year) => ({ value: year.id, label: year.title }))}
         />
         <ChoiceChips
           label="Altersgruppe"
-          value={journeyForm.ageGroup}
-          onChange={(value) => value && setJourneyForm((form) => ({ ...form, ageGroup: value }))}
-          options={[{ value: '5-8', label: '5–8 Jahre' }, { value: '9-12', label: '9–12 Jahre' }]}
+          value={journeyForm.ageGroupId}
+          onChange={(ageGroupId) => setJourneyForm((form) => ({ ...form, ageGroupId }))}
+          options={data.ageGroups.map((group) => ({ value: group.id, label: group.title }))}
         />
         <ChoiceChips
           label="Sichtbarkeit"
@@ -361,9 +543,13 @@ const styles = StyleSheet.create({
   toolbarCard: { padding: Space.lg },
   toolbarRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: Space.lg },
   toolbarCopy: { gap: 2 },
+  ageGroupControls: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
   yearList: { gap: Space.sm },
-  yearCard: { flexDirection: 'row', alignItems: 'center', gap: Space.md, padding: Space.lg },
+  yearCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md, padding: Space.lg },
+  yearCardSelected: { borderWidth: 2, borderColor: Palette.forest },
+  yearSelect: { flex: 1, minWidth: 230, flexDirection: 'row', alignItems: 'center', gap: Space.md },
   nodeIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
+  nodeIconSelected: { backgroundColor: Palette.paper },
   nodeCopy: { flex: 1, minWidth: 180, gap: 3 },
   titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
   treeCard: { minHeight: 300 },

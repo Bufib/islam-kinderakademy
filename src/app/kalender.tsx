@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { ChoiceChips, DataLoading, ErrorBanner, FormDialog, RowActions } from '@/components/ui/data-ui';
+import { DateField, TimeField } from '@/components/ui/date-time-fields';
 import {
   ActionButton,
   AppText,
@@ -20,7 +21,13 @@ import { useAcademyData } from '@/context/academy-data-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
 import { LiveSessionRow, LiveSessionStatus } from '@/types/database';
 import { confirmAction } from '@/utils/feedback';
-import { apiErrorMessage, formatDateTime, parseDateTimeInput, toDateTimeInput } from '@/utils/format';
+import {
+  apiErrorMessage,
+  combineLocalDateTime,
+  formatDateTime,
+  toLocalDateInput,
+  toLocalTimeInput,
+} from '@/utils/format';
 
 const weekDays = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -28,8 +35,9 @@ type SessionForm = {
   lessonId: number | null;
   groupId: number | null;
   title: string;
-  startsAt: string;
-  endsAt: string;
+  date: string;
+  startTime: string;
+  endTime: string;
   meetingUrl: string;
   replayUrl: string;
   status: LiveSessionStatus;
@@ -45,7 +53,7 @@ export default function CalendarScreen() {
   });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<LiveSessionRow | null>(null);
-  const [form, setForm] = useState<SessionForm>({ lessonId: null, groupId: null, title: '', startsAt: '', endsAt: '', meetingUrl: '', replayUrl: '', status: 'scheduled' });
+  const [form, setForm] = useState<SessionForm>({ lessonId: null, groupId: null, title: '', date: '', startTime: '17:00', endTime: '18:00', meetingUrl: '', replayUrl: '', status: 'scheduled' });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
@@ -66,6 +74,11 @@ export default function CalendarScreen() {
   }
 
   function openSession(session?: LiveSessionRow) {
+    const today = new Date();
+    const defaultDate =
+      visibleMonth.getFullYear() === today.getFullYear() && visibleMonth.getMonth() === today.getMonth()
+        ? localDateKey(today)
+        : localDateKey(visibleMonth);
     setEditing(session ?? null);
     setForm(
       session
@@ -73,8 +86,9 @@ export default function CalendarScreen() {
             lessonId: session.lesson_id,
             groupId: session.group_id,
             title: session.title ?? '',
-            startsAt: toDateTimeInput(session.starts_at),
-            endsAt: toDateTimeInput(session.ends_at),
+            date: toLocalDateInput(session.starts_at),
+            startTime: toLocalTimeInput(session.starts_at),
+            endTime: toLocalTimeInput(session.ends_at),
             meetingUrl: session.meeting_url ?? '',
             replayUrl: session.replay_url ?? '',
             status: session.status,
@@ -83,8 +97,9 @@ export default function CalendarScreen() {
             lessonId: data.lessons[0]?.id ?? null,
             groupId: null,
             title: '',
-            startsAt: '',
-            endsAt: '',
+            date: defaultDate,
+            startTime: '17:00',
+            endTime: '18:00',
             meetingUrl: '',
             replayUrl: '',
             status: 'scheduled',
@@ -95,10 +110,10 @@ export default function CalendarScreen() {
   }
 
   async function save() {
-    const startsAt = parseDateTimeInput(form.startsAt);
-    const endsAt = parseDateTimeInput(form.endsAt);
+    const startsAt = combineLocalDateTime(form.date, form.startTime);
+    const endsAt = combineLocalDateTime(form.date, form.endTime);
     if (!form.lessonId || !startsAt || !endsAt || endsAt <= startsAt) {
-      setFormError('Lektion sowie eine gültige Start- und Endzeit sind erforderlich.');
+      setFormError('Lektion, Datum sowie gültige Start- und Endzeiten sind erforderlich.');
       return;
     }
     setSaving(true);
@@ -212,9 +227,10 @@ export default function CalendarScreen() {
         <ChoiceChips label="Lektion" value={form.lessonId} onChange={(lessonId) => setForm((current) => ({ ...current, lessonId }))} options={data.lessons.map((lesson) => ({ value: lesson.id, label: lesson.title }))} />
         <ChoiceChips label="Gruppe" value={form.groupId} allowEmpty onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={data.groups.map((group) => ({ value: group.id, label: group.name }))} />
         <Field label="Bezeichnung" placeholder="Live-Unterricht" value={form.title} onChangeText={(title) => setForm((current) => ({ ...current, title }))} />
+        <DateField label="Datum" value={form.date} onChange={(date) => setForm((current) => ({ ...current, date }))} />
         <View style={styles.formRow}>
-          <View style={styles.formHalf}><Field label="Beginn" placeholder="2026-09-10T17:00" value={form.startsAt} onChangeText={(startsAt) => setForm((current) => ({ ...current, startsAt }))} /></View>
-          <View style={styles.formHalf}><Field label="Ende" placeholder="2026-09-10T18:00" value={form.endsAt} onChangeText={(endsAt) => setForm((current) => ({ ...current, endsAt }))} /></View>
+          <View style={styles.formHalf}><TimeField label="Beginn" value={form.startTime} onChange={(startTime) => setForm((current) => ({ ...current, startTime }))} /></View>
+          <View style={styles.formHalf}><TimeField label="Ende" value={form.endTime} onChange={(endTime) => setForm((current) => ({ ...current, endTime }))} /></View>
         </View>
         <Field label="Zoom-Link" placeholder="https://zoom.us/…" value={form.meetingUrl} onChangeText={(meetingUrl) => setForm((current) => ({ ...current, meetingUrl }))} autoCapitalize="none" />
         <Field label="Replay-Link" placeholder="Optional" value={form.replayUrl} onChangeText={(replayUrl) => setForm((current) => ({ ...current, replayUrl }))} autoCapitalize="none" />

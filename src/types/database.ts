@@ -7,7 +7,6 @@ export type Json =
   | Json[];
 
 export type DatabaseRole = 'parent' | 'teacher' | 'admin';
-export type AgeGroup = '5-8' | '9-12';
 export type LessonStatus = 'draft' | 'scheduled' | 'published' | 'archived';
 export type LessonStepType = 'start' | 'discover' | 'explain' | 'quiz' | 'challenge';
 export type LiveSessionStatus = 'scheduled' | 'live' | 'completed' | 'cancelled';
@@ -40,12 +39,21 @@ export type AcademyYearRow = {
   created_at: string;
 };
 
+export type AgeGroupRow = {
+  id: number;
+  title: string;
+  min_age: number;
+  max_age: number;
+  position: number;
+  created_at: string;
+};
+
 export type ChildRow = {
   id: number;
   parent_profile_id: number;
   display_name: string;
   birth_date: string | null;
-  age_group: AgeGroup;
+  age_group_id: number;
   avatar_key: string | null;
   created_at: string;
 };
@@ -53,7 +61,7 @@ export type ChildRow = {
 export type LearningJourneyRow = {
   id: number;
   academy_year_id: number;
-  age_group: AgeGroup;
+  age_group_id: number;
   title: string;
   description: string | null;
   position: number;
@@ -71,6 +79,9 @@ export type LessonRow = {
   position: number;
   publish_at: string | null;
   replay_url: string | null;
+  is_released: boolean;
+  released_at: string | null;
+  released_by_profile_id: number | null;
   created_at: string;
 };
 
@@ -89,7 +100,7 @@ export type GroupRow = {
   academy_year_id: number;
   teacher_profile_id: number | null;
   name: string;
-  age_group: AgeGroup;
+  age_group_id: number;
   created_at: string;
 };
 
@@ -120,6 +131,8 @@ export type LessonQuizRow = {
   description: string | null;
   passing_percent: number;
   is_published: boolean;
+  released_at: string | null;
+  released_by_profile_id: number | null;
   created_at: string;
 };
 
@@ -252,6 +265,7 @@ export type AcademyData = {
   profiles: ProfileRow[];
   userRoles: UserRoleRow[];
   academyYears: AcademyYearRow[];
+  ageGroups: AgeGroupRow[];
   children: ChildRow[];
   journeys: LearningJourneyRow[];
   lessons: LessonRow[];
@@ -278,6 +292,7 @@ export const emptyDatabaseData: AcademyData = {
   profiles: [],
   userRoles: [],
   academyYears: [],
+  ageGroups: [],
   children: [],
   journeys: [],
   lessons: [],
@@ -304,6 +319,7 @@ export type AcademyTableRowMap = {
   profiles: ProfileRow;
   user_roles: UserRoleRow;
   academy_years: AcademyYearRow;
+  age_groups: AgeGroupRow;
   children: ChildRow;
   learning_journeys: LearningJourneyRow;
   lessons: LessonRow;

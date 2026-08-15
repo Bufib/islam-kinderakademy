@@ -35,6 +35,21 @@ export function parseDateTimeInput(value: string) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+export function toLocalDateInput(value: string | null | undefined) {
+  return toDateTimeInput(value).slice(0, 10);
+}
+
+export function toLocalTimeInput(value: string | null | undefined) {
+  return toDateTimeInput(value).slice(11, 16);
+}
+
+export function combineLocalDateTime(dateValue: string, timeValue: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || !/^\d{2}:\d{2}$/.test(timeValue)) {
+    return null;
+  }
+  return parseDateTimeInput(`${dateValue}T${timeValue}`);
+}
+
 export function formatBytes(value: number | null) {
   if (value === null) return 'Unbekannte Größe';
   if (value < 1024) return `${value} B`;
@@ -50,6 +65,11 @@ export function apiErrorMessage(error: unknown) {
   if (normalized.includes('foreign key')) return 'Der Eintrag wird noch an anderer Stelle verwendet.';
   if (normalized.includes('last admin')) return 'Der letzte Admin kann die eigene Adminrolle nicht entfernen.';
   if (normalized.includes('admin role required')) return 'Für diese Aktion ist eine Adminrolle erforderlich.';
+  if (normalized.includes('lesson must be published before release')) return 'Die Lektion muss zuerst den Status „Veröffentlicht“ haben.';
+  if (normalized.includes('lesson must be released before quiz')) return 'Gib zuerst die Lektion frei.';
+  if (normalized.includes('completed live session required before quiz release')) return 'Das Quiz kann erst freigegeben werden, nachdem der Live-Termin als „Beendet“ markiert wurde.';
+  if (normalized.includes('lesson not found')) return 'Die Lektion wurde nicht gefunden.';
+  if (normalized.includes('quiz not found')) return 'Das Quiz wurde nicht gefunden.';
   if (normalized.includes('invalid account role')) return 'Die ausgewählte Kontorolle ist ungültig.';
   if (normalized.includes('academy staff role required')) return 'Für diese Aktion ist eine Teamrolle erforderlich.';
   if (normalized.includes('child access required')) return 'Für dieses Kinderprofil fehlt die Berechtigung.';
