@@ -53,6 +53,7 @@ GitHub Pages:
 - Produktions-URL: `https://bufib.github.io/islam-kinderakademy/`
 - Expo-Unterpfad: `experiments.baseUrl = "/islam-kinderakademy"`
 - Workflow: `.github/workflows/deploy-pages.yml`
+- Deployment-Branch: `erweiterung` (ein Push auf diesen Branch veröffentlicht die aktuelle Web-App)
 - Der Workflow erwartet die Repository-Secrets `EXPO_PUBLIC_SUPABASE_URL` und `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
 Supabase:

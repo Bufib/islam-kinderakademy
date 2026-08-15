@@ -3,7 +3,7 @@ name: Web-App auf GitHub Pages veröffentlichen
 on:
   push:
     branches:
-      - main
+      - erweiterung
   workflow_dispatch:
 
 permissions:

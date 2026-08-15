@@ -61,8 +61,7 @@ export default function QuizScreen() {
     return (
       <PageScaffold
         eyebrow={lesson.title}
-        title="Quiz wird vorbereitet"
-        action={<ActionButton label="Zurück zur Lektion" variant="secondary" onPress={() => router.back()} />}>
+        title="Quiz wird vorbereitet">
         <Card>
           <EmptyState
             icon="clock"
@@ -106,8 +105,7 @@ export default function QuizScreen() {
     <PageScaffold
       eyebrow={lesson.title}
       title={quiz.title}
-      description={quiz.description ?? `Beantworte alle ${questions.length} Fragen und schließe die Lektion ab.`}
-      action={<ActionButton label="Zurück zur Lektion" variant="secondary" onPress={() => router.back()} />}>
+      description={quiz.description ?? `Beantworte alle ${questions.length} Fragen und schließe die Lektion ab.`}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       {actionError && <ErrorBanner message={actionError} />}
 

@@ -88,7 +88,7 @@ Eine Lektion wird im Lektionseditor unter **Status & Freigabe** zunächst auf **
 
 ## Auf GitHub Pages veröffentlichen
 
-Das Projekt ist für das Repository `Bufib/islam-kinderakademy` und damit für den Unterpfad `/islam-kinderakademy` konfiguriert. Der Workflow `.github/workflows/deploy-pages.yml` baut und veröffentlicht die Web-App automatisch bei jedem Push auf `main`. Während des Builds wird außerdem ein Pages-Fallback für direkt aufgerufene dynamische Lektions- und Mitteilungsrouten erzeugt.
+Das Projekt ist für das Repository `Bufib/islam-kinderakademy` und damit für den Unterpfad `/islam-kinderakademy` konfiguriert. Der Workflow `.github/workflows/deploy-pages.yml` baut und veröffentlicht die Web-App automatisch bei jedem Push auf `erweiterung`. Während des Builds wird außerdem ein Pages-Fallback für direkt aufgerufene dynamische Lektions- und Mitteilungsrouten erzeugt.
 
 Im GitHub-Repository müssen unter **Settings → Secrets and variables → Actions** diese Repository-Secrets angelegt werden:
 
@@ -106,7 +106,7 @@ https://bufib.github.io/islam-kinderakademy/login
 https://bufib.github.io/islam-kinderakademy/account
 ```
 
-Nach einem Push auf `main` ist die App unter `https://bufib.github.io/islam-kinderakademy/` erreichbar. Den Fortschritt zeigt GitHub im Tab **Actions** an.
+Nach einem Push auf `erweiterung` ist die App unter `https://bufib.github.io/islam-kinderakademy/` erreichbar. Den Fortschritt zeigt GitHub im Tab **Actions** an.
 
 ## Prüfungen
 

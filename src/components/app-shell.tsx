@@ -117,6 +117,7 @@ export function AppShell({ children }: PropsWithChildren) {
   const router = useRouter();
   const desktop = width >= Layout.desktopBreakpoint;
   const isAdmin = activeRole === 'team' && profile?.role === 'admin';
+  const isLessonFlow = pathname.startsWith('/lektion/') || pathname.startsWith('/quiz/');
   const currentRoleMeta = isAdmin ? adminRoleMeta : roleMeta[activeRole];
   const navItems = useMemo(
     () => roleNavigation[activeRole].filter((item) => !item.adminOnly || isAdmin),
@@ -154,8 +155,21 @@ export function AppShell({ children }: PropsWithChildren) {
         <View style={styles.main}>
           <TopBar
             compact={!desktop}
-            pageTitle={pathname.startsWith('/lektion/') ? 'Lektion' : pathname.startsWith('/mitteilung/') ? 'Mitteilung' : pageTitles[pathname] ?? 'Islam-Kinderakademie'}
+            pageTitle={pathname.startsWith('/lektion/') ? 'Lektion' : pathname.startsWith('/quiz/') ? 'Quiz' : pathname.startsWith('/mitteilung/') ? 'Mitteilung' : pageTitles[pathname] ?? 'Islam-Kinderakademie'}
             meta={currentRoleMeta}
+            onGoBack={
+              isLessonFlow
+                ? () => {
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else if (pathname.startsWith('/quiz/')) {
+                      router.replace(pathname.replace('/quiz/', '/lektion/') as Href);
+                    } else {
+                      router.replace('/lernreisen' as Href);
+                    }
+                  }
+                : undefined
+            }
             onOpenAccount={() => {
               if (activeRole === 'child') {
                 exitChildArea();
@@ -284,18 +298,37 @@ function TopBar({
   compact,
   pageTitle,
   meta,
+  onGoBack,
   onOpenAccount,
   onOpenNotifications,
 }: {
   compact: boolean;
   pageTitle: string;
   meta: RoleMeta;
+  onGoBack?: () => void;
   onOpenAccount: () => void;
   onOpenNotifications: () => void;
 }) {
   return (
     <View style={[styles.topBar, compact && styles.topBarCompact]}>
-      {compact ? <BrandMark compact /> : <AppText variant="bodyStrong">{pageTitle}</AppText>}
+      <View style={styles.topHeading}>
+        {onGoBack && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Zurück"
+            onPress={onGoBack}
+            style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+            <View style={styles.backIcon}>
+              <AppIcon name="arrow" size={19} color={Palette.ink} />
+            </View>
+          </Pressable>
+        )}
+        {compact && !onGoBack ? (
+          <BrandMark compact />
+        ) : (
+          <AppText variant="bodyStrong" numberOfLines={1} style={styles.topTitle}>{pageTitle}</AppText>
+        )}
+      </View>
       <View style={styles.topActions}>
         {!compact && <Pill tone={meta.tone}>{meta.label}</Pill>}
         <Pressable
@@ -518,6 +551,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.lg,
     width: '100%',
     maxWidth: '100%',
+  },
+  topHeading: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+  },
+  topTitle: {
+    flexShrink: 1,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Palette.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.white,
+  },
+  backIcon: {
+    transform: [{ rotate: '180deg' }],
   },
   topActions: {
     flexDirection: 'row',

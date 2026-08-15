@@ -70,8 +70,7 @@ export default function LessonDetailScreen() {
     <PageScaffold
       eyebrow={journey?.title ?? 'Lernreise'}
       title={lesson.title}
-      description={lesson.description ?? undefined}
-      action={<ActionButton label="Zurück" icon="arrow" variant="secondary" onPress={() => router.back()} />}>
+      description={lesson.description ?? undefined}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
 
       <Card tone="dark" style={styles.progressCard}>
