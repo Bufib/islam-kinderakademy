@@ -145,7 +145,7 @@ export default function MediaScreen() {
 const styles = StyleSheet.create({
   uploadCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
   uploadIcon: { width: 64, height: 64, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.68)', alignItems: 'center', justifyContent: 'center' },
-  uploadCopy: { flex: 1, minWidth: 230, gap: 4 },
+  uploadCopy: { flex: 1, flexBasis: 230, minWidth: 0, gap: 4 },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   libraryCard: { minHeight: 430 },
   assetGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },

@@ -101,7 +101,7 @@ export default function IslamPassScreen() {
 
       <SectionHeader title="Meine Abzeichen" description="Deine persönlichen Erfolge aus Supabase." />
       {awards.length === 0 ? (
-        <Card tone="sun" style={styles.badgesEmpty}>
+        <Card tone="sun" style={[styles.badgesEmpty, compact && styles.badgesEmptyCompact]}>
           <View style={styles.badgesIcon}><AppIcon name="trophy" size={29} color="#846211" /></View>
           <View style={styles.badgesCopy}>
             <AppText variant="heading">Noch keine Abzeichen</AppText>
@@ -114,7 +114,7 @@ export default function IslamPassScreen() {
             const badge = data.badges.find((entry) => entry.id === award.badge_id);
             if (!badge) return null;
             return (
-              <Card key={award.id} tone="sun" style={styles.badgeCard}>
+              <Card key={award.id} tone="sun" style={[styles.badgeCard, compact && styles.badgeCardCompact]}>
                 <View style={styles.badgesIcon}><AppIcon name="trophy" size={29} color="#846211" /></View>
                 <View style={styles.badgesCopy}>
                   <AppText variant="heading">{badge.title}</AppText>
@@ -132,9 +132,9 @@ export default function IslamPassScreen() {
 
 const styles = StyleSheet.create({
   passCard: { minHeight: 290, padding: Space.xxl },
-  passCardCompact: { padding: Space.xl },
+  passCardCompact: { minHeight: 0, padding: Space.lg },
   passHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: Space.lg },
-  passBrand: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  passBrand: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Space.md },
   passIcon: { width: 54, height: 54, borderRadius: 19, backgroundColor: Palette.sun, alignItems: 'center', justifyContent: 'center' },
   passBody: { flexDirection: 'row', alignItems: 'center', gap: Space.xl, marginTop: 54 },
   passBodyCompact: { alignItems: 'flex-start', flexDirection: 'column', marginTop: Space.xl },
@@ -146,8 +146,10 @@ const styles = StyleSheet.create({
   stampCircle: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderStyle: 'dashed', borderColor: Palette.line, backgroundColor: '#F5F7F4', alignItems: 'center', justifyContent: 'center' },
   stampCircleDone: { borderStyle: 'solid', borderColor: Palette.forest, backgroundColor: Palette.forest },
   badgesEmpty: { flexDirection: 'row', alignItems: 'center', gap: Space.lg },
+  badgesEmptyCompact: { alignItems: 'flex-start', flexDirection: 'column' },
   badgesIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center', justifyContent: 'center' },
   badgesCopy: { flex: 1, minWidth: 180, gap: 4 },
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.lg },
   badgeCard: { flex: 1, minWidth: 280, flexDirection: 'row', alignItems: 'center', gap: Space.lg, borderRadius: Radius.large },
+  badgeCardCompact: { minWidth: 0 },
 });

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import {
@@ -21,7 +21,7 @@ import {
   SegmentedControl,
   SectionHeader,
 } from '@/components/ui/primitives';
-import { Palette, Space } from '@/constants/design';
+import { Layout, Palette, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
 import { useAuth } from '@/context/auth-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
@@ -43,6 +43,8 @@ const emptyYear: YearForm = { title: '', startsOn: '', endsOn: '', active: false
 
 export default function CurriculumScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
   const { profile } = useAuth();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [ageGroupId, setAgeGroupId] = useState<number | null>(null);
@@ -354,9 +356,13 @@ export default function CurriculumScreen() {
                   accessibilityLabel={`${year.title} öffnen`}
                   accessibilityState={{ selected: isSelected }}
                   onPress={() => setSelectedYearId(year.id)}
-                  style={({ pressed }) => [styles.yearSelect, pressed && styles.pressed]}>
+                  style={({ pressed }) => [
+                    styles.yearSelect,
+                    compact && styles.yearSelectCompact,
+                    pressed && styles.pressed,
+                  ]}>
                   <View style={[styles.nodeIcon, isSelected && styles.nodeIconSelected]}><AppIcon name="calendar" size={22} color={Palette.forest} /></View>
-                  <View style={styles.nodeCopy}>
+                  <View style={[styles.nodeCopy, compact && styles.copyCompact]}>
                     <View style={styles.titleLine}>
                       <AppText variant="bodyStrong">{year.title}</AppText>
                       <Pill tone={year.is_active ? 'mint' : 'neutral'}>{year.is_active ? 'Aktiv' : 'Inaktiv'}</Pill>
@@ -401,7 +407,7 @@ export default function CurriculumScreen() {
                   return (
                     <View key={journey.id} style={styles.journeyRow}>
                       <View style={styles.journeyNumber}><AppText variant="bodyStrong">{index + 1}</AppText></View>
-                      <View style={styles.nodeCopy}>
+                      <View style={[styles.nodeCopy, compact && styles.copyCompact]}>
                         <View style={styles.titleLine}>
                           <AppText variant="bodyStrong">{journey.title}</AppText>
                           <Pill tone="sky" icon="calendar">{selectedYear.title}</Pill>
@@ -438,7 +444,7 @@ export default function CurriculumScreen() {
 
       <Card tone="sun" style={styles.editorHint}>
         <View style={styles.hintIcon}><AppIcon name="lessons" size={23} color="#846211" /></View>
-        <View style={styles.hintCopy}>
+        <View style={[styles.hintCopy, compact && styles.copyCompact]}>
           <AppText variant="bodyStrong">Lektionseditor</AppText>
           <AppText color={Palette.inkSoft}>Erstellt Einstiegstext, geplanten Live-Zoom-Termin und ein separates Multiple-Choice-Quiz.</AppText>
         </View>
@@ -548,9 +554,11 @@ const styles = StyleSheet.create({
   yearCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md, padding: Space.lg },
   yearCardSelected: { borderWidth: 2, borderColor: Palette.forest },
   yearSelect: { flex: 1, minWidth: 230, flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  yearSelectCompact: { width: '100%', minWidth: 0, flexBasis: '100%' },
   nodeIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
   nodeIconSelected: { backgroundColor: Palette.paper },
   nodeCopy: { flex: 1, minWidth: 180, gap: 3 },
+  copyCompact: { minWidth: 0 },
   titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
   treeCard: { minHeight: 300 },
   journeyList: { gap: Space.sm },

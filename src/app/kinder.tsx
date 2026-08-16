@@ -42,6 +42,7 @@ export default function ChildrenScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { profile, user, refreshProfile } = useAuth();
   const { enterChildArea } = useAcademy();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
@@ -131,8 +132,8 @@ export default function ChildrenScreen() {
       action={<ActionButton label="Kind hinzufügen" icon="add" disabled={data.ageGroups.length === 0} onPress={openCreate} />}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       {data.ageGroups.length === 0 && <ErrorBanner message="Das Akademie-Team muss zuerst eine Altersgruppe anlegen." />}
-      <View style={[styles.layout, compact && styles.column]}>
-        <Card style={styles.profilesCard}>
+      <View style={[styles.layout, stacked && styles.column]}>
+        <Card style={[styles.profilesCard, stacked && styles.fullWidth]}>
           <SectionHeader
             title="Kinderprofile"
             description={`${data.children.length} ${data.children.length === 1 ? 'Profil' : 'Profile'}`}
@@ -159,11 +160,11 @@ export default function ChildrenScreen() {
                     )
                   : 0;
                 return (
-                  <View key={child.id} style={styles.profileRow}>
+                  <View key={child.id} style={[styles.profileRow, compact && styles.profileRowCompact]}>
                     <View style={styles.avatar}>
                       <AppText variant="heading">{child.display_name.charAt(0).toUpperCase()}</AppText>
                     </View>
-                    <View style={styles.profileCopy}>
+                    <View style={[styles.profileCopy, compact && styles.profileCopyCompact]}>
                       <View style={styles.profileTitleRow}>
                         <AppText variant="bodyStrong">{child.display_name}</AppText>
                         <Pill tone="mint">{ageGroup?.title ?? 'Unbekannte Altersgruppe'}</Pill>
@@ -173,7 +174,7 @@ export default function ChildrenScreen() {
                         {progress}% Gesamtfortschritt · {progressRows.filter((row) => row.status === 'completed').length} Lektionen abgeschlossen
                       </AppText>
                     </View>
-                    <View style={styles.profileActions}>
+                    <View style={[styles.profileActions, compact && styles.profileActionsCompact]}>
                       <ActionButton
                         label="Kinderbereich"
                         icon="arrow"
@@ -190,7 +191,7 @@ export default function ChildrenScreen() {
           )}
         </Card>
 
-        <Card tone="mint" style={styles.guideCard}>
+        <Card tone="mint" style={[styles.guideCard, stacked && styles.fullWidth]}>
           <View style={styles.guideIcon}>
             <AppIcon name="lock" size={24} color={Palette.forest} />
           </View>
@@ -250,6 +251,7 @@ export default function ChildrenScreen() {
 const styles = StyleSheet.create({
   layout: { flexDirection: 'row', gap: Space.lg, alignItems: 'flex-start' },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   profilesCard: { flex: 1.45, minWidth: 0 },
   guideCard: { flex: 0.75, minWidth: 280, gap: Space.lg },
   guideIcon: {
@@ -282,6 +284,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.medium,
     padding: Space.lg,
   },
+  profileRowCompact: { alignItems: 'flex-start', flexDirection: 'column' },
   avatar: {
     width: 50,
     height: 50,
@@ -291,6 +294,8 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.sun,
   },
   profileCopy: { flex: 1, minWidth: 210, gap: Space.sm },
+  profileCopyCompact: { width: '100%', minWidth: 0 },
   profileTitleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
   profileActions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
+  profileActionsCompact: { width: '100%' },
 });

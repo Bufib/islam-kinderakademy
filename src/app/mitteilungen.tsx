@@ -179,5 +179,5 @@ const styles = StyleSheet.create({
   messageList: { gap: Space.sm, marginTop: Space.lg },
   messageRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.lg },
   messageIcon: { width: 42, height: 42, borderRadius: Radius.medium, backgroundColor: Palette.skySoft, alignItems: 'center', justifyContent: 'center' },
-  messageCopy: { flex: 1, minWidth: 240, gap: Space.sm },
+  messageCopy: { flex: 1, flexBasis: 240, minWidth: 0, gap: Space.sm },
 });

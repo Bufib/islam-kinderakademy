@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { ErrorBanner, FormDialog } from '@/components/ui/data-ui';
 import { ActionButton, AppText, Card, Field, PageScaffold, Pill } from '@/components/ui/primitives';
-import { Palette, Radius, Space } from '@/constants/design';
+import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
 import { AccountRole, useAuth } from '@/context/auth-context';
 import { updateRecord } from '@/lib/academy-api';
@@ -19,6 +19,8 @@ const roleLabels: Record<AccountRole, string> = {
 };
 
 export default function AccountScreen() {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
   const { user, profile, signOut, isProfileLoading, refreshProfile } = useAuth();
   const { execute } = useAcademyData();
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +116,8 @@ export default function AccountScreen() {
       eyebrow="KONTO"
       title="Mein Account"
       description="Hier siehst du deine Kontodaten und verwaltest deine Anmeldung.">
-      <View style={styles.layout}>
-        <Card style={styles.profileCard}>
+      <View style={[styles.layout, compact && styles.column]}>
+        <Card style={[styles.profileCard, compact && styles.fullWidth]}>
           <View style={styles.profileHeader}>
             <View style={styles.avatar}>
               <AppText variant="heading">{initials || 'IK'}</AppText>
@@ -142,13 +144,13 @@ export default function AccountScreen() {
               value={user ? 'Angemeldet' : 'Nicht angemeldet'}
             />
           </View>
-          <View style={styles.profileActions}>
-            <ActionButton label="Profil bearbeiten" icon="edit" variant="secondary" onPress={openProfileDialog} />
-            <ActionButton label="Passwort ändern" icon="lock" variant="secondary" onPress={openPasswordDialog} />
+          <View style={[styles.profileActions, compact && styles.column]}>
+            <ActionButton label="Profil bearbeiten" icon="edit" variant="secondary" onPress={openProfileDialog} style={compact ? styles.fullButton : undefined} />
+            <ActionButton label="Passwort ändern" icon="lock" variant="secondary" onPress={openPasswordDialog} style={compact ? styles.fullButton : undefined} />
           </View>
         </Card>
 
-        <Card style={styles.securityCard}>
+        <Card style={[styles.securityCard, compact && styles.fullWidth]}>
           <View style={styles.securityIcon}>
             <AppIcon name="lock" size={23} color={Palette.forest} />
           </View>
@@ -230,6 +232,9 @@ function AccountDetail({
 
 const styles = StyleSheet.create({
   layout: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.lg },
+  column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
+  fullButton: { width: '100%' },
   profileCard: { flex: 2, minWidth: 300 },
   securityCard: { flex: 1, minWidth: 280, alignItems: 'flex-start', gap: Space.md },
   profileHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.lg },

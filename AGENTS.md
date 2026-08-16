@@ -286,6 +286,10 @@ Zoom- oder andere Live-Termine pro Lektion und optional pro Gruppe. Enthält:
 - `replay_url`
 - Status `scheduled`, `live`, `completed` oder `cancelled`
 
+Die App erstellt derzeit keine Zoom-Meetings über die Zoom API und bettet keinen Zoom-Client ein. Ein Admin plant das echte Meeting außerhalb der App in Zoom und trägt ausschließlich den Teilnehmerlink im Feld `meeting_url` des Lektionseditors ein. Familien öffnen diesen externen Link aus der geschützten Lektionsansicht. Niemals Host-Key, Zoom-Kontopasswort oder andere Zoom-Secrets im Frontend beziehungsweise in `meeting_url` speichern. Ein im Teilnehmerlink codierter Meeting-Passcode ist davon nicht betroffen.
+
+Die Terminstatus werden im Kalender manuell gepflegt. Nach dem Unterricht muss ein Termin auf `completed` gesetzt werden, bevor das zugehörige Quiz freigegeben werden kann. Eine spätere automatische Meeting-Erstellung benötigt eine serverseitige Zoom-OAuth-/Meetings-API-Integration, beispielsweise über eine geschützte Supabase Edge Function; Zoom-Secrets dürfen dabei nicht in den Expo-Client gelangen.
+
 In der Oberfläche werden Terminzeiten nicht als kombinierter ISO-Text eingegeben. Web verwendet ein Kalenderfeld und native Uhrzeitfelder; iOS und Android verwenden den nativen DateTimePicker. Ein Live-Termin hat ein gemeinsames Datum sowie getrennte Felder für Beginn und Ende. Vor dem Schreiben werden diese lokalen Werte wieder in ISO-Zeitpunkte umgewandelt.
 
 Meeting-URLs dürfen nur für berechtigte Gruppen beziehungsweise Mitarbeitende lesbar sein.
@@ -431,12 +435,13 @@ Bereits funktional umgesetzt:
 - kalendergestützte Datumswahl und getrennte Start-/Endzeit für Zoom-Termine auf Web, iOS und Android
 - klar sichtbare Admin-Freigabe direkt im Lektionseditor und in der Lektionsübersicht
 - Lektionsübersicht bildet die verpflichtende Hierarchie Akademiejahr → Lernreise → Lektion sichtbar ab und sortiert innerhalb der Lernreise nach `lessons.position`; filterbar nach Akademiejahr, Altersgruppe, Lernreise, Status und Suchtext
+- Lernreisen sind in der Lektionsübersicht standardmäßig kompakt. Ein Chevron in jeder Lernreise-Kopfzeile blendet alle zugehörigen Lektionen gemeinsam ein oder aus. Innerhalb einer geöffneten Lernreise zeigt jede Lektion zunächst eine kompakte Zusammenfassung; ihr eigener Chevron öffnet Beschreibung, Freigaben sowie Bearbeiten-/Löschen-Aktionen
 - Admin-Sammelfreigabe für alle aktuell gefilterten oder alle in einer Lernreise enthaltenen, veröffentlichten und noch gesperrten Lektionen. Entwürfe dürfen dabei nicht automatisch veröffentlicht werden
 - Quiz-Editor mit beliebig vielen Fragen und Antwortmöglichkeiten, genau einer richtigen Antwort und einstellbarer Bestehensgrenze
 - geschützte Quizseite für Kinder mit serverseitiger Auswertung und Wiederholungsversuchen
 - Fortschritt pro Schritt und Lektion
 - Textantworten und Challenge-Bestätigungen
-- Zoom-Links und Replay-Links aus Supabase
+- extern erstellte Zoom-Teilnehmerlinks und Replay-Links aus Supabase; keine automatische Zoom-Meeting-Erstellung und kein eingebetteter Zoom-Client
 - Mitteilungen an alle, einzelne Profile oder Gruppen
 - kompakte Mitteilungsübersicht mit Titel/erstem Satz und separater Detailansicht
 - Abzeichenverwaltung und persönliche Verleihung
@@ -453,6 +458,7 @@ Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:
 - Audio- und Bildabgaben aus Lernschritten
 - Zahlungs- oder Mitgliedschaftssystem
 - Push-Benachrichtigungen
+- automatische Erstellung oder Änderung von Zoom-Meetings über die Zoom API
 
 ## 12. Frontend-Struktur
 
@@ -493,6 +499,9 @@ src/
 
 - Sprache der Oberfläche ist Deutsch.
 - Web-first und responsive entwickeln; native Kompatibilität erhalten.
+- Die gemeinsamen Breakpoints liegen in `src/constants/design.ts`: Unter `620 px` gelten kompakte Smartphone-Abstände, unter `1024 px` verwendet die geschützte App die Mobilnavigation und unter `1200 px` werden breite Inhalts-Spalten untereinander angeordnet.
+- Keine Bildschirmbreite darf über feste Geräteprofile wie „iPhone 12“ behandelt werden. Layouts müssen fließend von kleinen Smartphones über Tablets bis zu großen Desktopfenstern funktionieren.
+- Horizontale Inhaltsbereiche müssen umbrechen oder untereinander wechseln. Karten, Eingaben, Textblöcke und Aktionsleisten erhalten auf schmalen Ansichten `minWidth: 0` beziehungsweise höchstens `100%` Breite; feste Mindestbreiten benötigen immer eine kompakte Überschreibung.
 - Bestehende Farbpalette und Komponenten aus `src/constants/design.ts` und `src/components/ui/` wiederverwenden.
 - Öffentliche Seiten dürfen die interne App-Shell nicht anzeigen.
 - Geschützte Seiten verwenden die gemeinsame App-Shell.

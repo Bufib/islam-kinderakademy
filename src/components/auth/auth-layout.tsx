@@ -32,6 +32,7 @@ export function AuthLayout({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < Layout.desktopBreakpoint;
+  const small = width < Layout.compactBreakpoint;
 
   return (
     <KeyboardAvoidingView
@@ -44,7 +45,7 @@ export function AuthLayout({
         showsVerticalScrollIndicator={false}>
         <View style={[styles.header, compact && styles.headerCompact]}>
           <Pressable accessibilityRole="link" onPress={() => router.push('/' as Href)}>
-            <BrandMark />
+            <BrandMark compact={width < 360} />
           </Pressable>
           <Pressable
             accessibilityRole="link"
@@ -84,7 +85,7 @@ export function AuthLayout({
           )}
 
           <View style={[styles.formColumn, compact && styles.formColumnCompact]}>
-            <View style={[styles.formCard, compact && styles.formCardCompact]}>
+            <View style={[styles.formCard, compact && styles.formCardCompact, small && styles.formCardSmall]}>
               <View style={styles.formHeading}>
                 <AppText variant="label" color={Palette.forest}>
                   {eyebrow}
@@ -247,6 +248,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 12px 24px rgba(23, 61, 58, 0.07)',
   },
   formCardCompact: { padding: Space.xl },
+  formCardSmall: { padding: Space.lg, borderRadius: Radius.large },
   formHeading: { minWidth: 0, gap: Space.md, marginBottom: Space.xl },
   field: { gap: 7 },
   input: {

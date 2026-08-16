@@ -144,6 +144,6 @@ const styles = StyleSheet.create({
   list: { gap: Space.sm },
   row: { flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.lg },
   icon: { width: 42, height: 42, borderRadius: Radius.medium, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, minWidth: 240, gap: Space.sm },
+  copy: { flex: 1, flexBasis: 240, minWidth: 0, gap: Space.sm },
   titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
 });

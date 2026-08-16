@@ -41,7 +41,7 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
   ],
   team: [
     { label: 'Übersicht', shortLabel: 'Start', icon: 'dashboard', href: '/dashboard' },
-    { label: 'Konten & Rollen', shortLabel: 'Konten', icon: 'profile', href: '/konten', adminOnly: true },
+    { label: 'Konten & Rollen', shortLabel: 'Konten', icon: 'profile', href: '/konten', adminOnly: true, mobile: false },
     { label: 'Curriculum', shortLabel: 'Plan', icon: 'curriculum', href: '/curriculum' },
     { label: 'Lektionen', icon: 'lessons', href: '/lektionen' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
@@ -579,7 +579,8 @@ const styles = StyleSheet.create({
   topActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: "center",
+    justifyContent: 'center',
+    flexShrink: 0,
     gap: Space.sm,
   },
   iconButton: {

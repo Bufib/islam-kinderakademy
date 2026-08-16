@@ -31,7 +31,8 @@ export const Radius = {
 export const Layout = {
   sidebarWidth: 252,
   contentMaxWidth: 1180,
-  desktopBreakpoint: 920,
+  desktopBreakpoint: 1024,
+  contentStackBreakpoint: 1200,
   compactBreakpoint: 620,
 } as const;
 
@@ -44,4 +45,3 @@ export const Space = {
   xxl: 32,
   huge: 48,
 } as const;
-

@@ -26,7 +26,7 @@ export function ChildDashboard() {
   const { width } = useWindowDimensions();
   const [openedAt] = useState(() => Date.now());
   const compact = width < Layout.compactBreakpoint;
-  const stacked = width < 1080;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { selectedChildId, exitChildArea } = useAcademy();
   const { data, isLoading, error, refresh } = useAcademyData();
   const child = data.children.find((entry) => entry.id === selectedChildId);
@@ -103,7 +103,7 @@ export function ChildDashboard() {
     <PageScaffold eyebrow="Mein Bereich" title={`Salam, ${child.display_name}!`}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
       <View style={[styles.heroGrid, stacked && styles.column]}>
-        <Card tone="dark" style={[styles.heroCard, stacked && styles.fullWidth]}>
+        <Card tone="dark" style={[styles.heroCard, stacked && styles.fullWidth, compact && styles.heroCardCompact]}>
           <View style={styles.heroCopy}>
             <Pill tone="sun" icon="journeys">Deine Lernwoche</Pill>
             <View style={styles.heroText}>
@@ -241,6 +241,7 @@ const styles = StyleSheet.create({
   column: { flexDirection: 'column' },
   fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   heroCard: { minHeight: 330, flex: 1.72, flexDirection: 'row', position: 'relative', padding: Space.xxl },
+  heroCardCompact: { minHeight: 0, padding: Space.lg },
   heroCopy: { flex: 1, minWidth: 0, maxWidth: 610, zIndex: 1 },
   heroText: { gap: Space.md, marginTop: Space.xl, marginBottom: Space.xl },
   heroDescription: { maxWidth: 490 },

@@ -215,7 +215,7 @@ export default function QuizScreen() {
 
 const styles = StyleSheet.create({
   summaryCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.xl },
-  summaryCopy: { flex: 1, minWidth: 240, alignItems: 'flex-start', gap: Space.sm },
+  summaryCopy: { flex: 1, flexBasis: 240, minWidth: 0, alignItems: 'flex-start', gap: Space.sm },
   bestScore: { alignItems: 'flex-end', gap: 3 },
   questionsList: { gap: Space.lg },
   questionCard: { gap: Space.xl },
@@ -231,9 +231,9 @@ const styles = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Palette.forest },
   optionText: { flex: 1 },
   submitCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
-  submitCopy: { flex: 1, minWidth: 220, gap: 3 },
+  submitCopy: { flex: 1, flexBasis: 220, minWidth: 0, gap: 3 },
   resultCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.xl },
   resultIcon: { width: 66, height: 66, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.68)' },
-  resultCopy: { flex: 1, minWidth: 240, alignItems: 'flex-start', gap: Space.sm },
+  resultCopy: { flex: 1, flexBasis: 240, minWidth: 0, alignItems: 'flex-start', gap: Space.sm },
   resultActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
 });

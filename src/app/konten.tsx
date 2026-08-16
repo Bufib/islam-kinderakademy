@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
   accountList: { gap: Space.sm },
   accountRow: { minHeight: 82, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.md },
   avatar: { width: 48, height: 48, borderRadius: Radius.medium, backgroundColor: Palette.sun, alignItems: 'center', justifyContent: 'center' },
-  accountCopy: { flex: 1, minWidth: 240, gap: 3 },
+  accountCopy: { flex: 1, flexBasis: 240, minWidth: 0, gap: 3 },
   titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
   roleNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.md, borderRadius: Radius.medium, backgroundColor: Palette.mint, padding: Space.md },
   noticeCopy: { flex: 1 },

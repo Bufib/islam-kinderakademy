@@ -22,7 +22,7 @@ const quickActions: { label: string; description: string; icon: AppIconName; hre
 export function TeamDashboard() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { data, isLoading, error, refresh } = useAcademyData();
   const setup = [
     { label: 'Akademiejahr anlegen', done: data.academyYears.length > 0, href: '/curriculum' },
@@ -64,8 +64,8 @@ export function TeamDashboard() {
         ))}
       </View>
 
-      <View style={[styles.lowerGrid, compact && styles.column]}>
-        <Card style={styles.setupCard}>
+      <View style={[styles.lowerGrid, stacked && styles.column]}>
+        <Card style={[styles.setupCard, stacked && styles.fullWidth]}>
           <SectionHeader title="Einrichtung" description={`${setup.filter((item) => item.done).length} von ${setup.length} erledigt`} />
           <View style={styles.setupList}>
             {setup.map((item, index) => (
@@ -78,7 +78,7 @@ export function TeamDashboard() {
           </View>
         </Card>
 
-        <Card style={styles.activityCard}>
+        <Card style={[styles.activityCard, stacked && styles.fullWidth]}>
           <SectionHeader title="Letzte Aktivität" />
           {isLoading && latestActivity.length === 0 ? (
             <DataLoading />
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
   quickCopy: { flex: 1 },
   lowerGrid: { flexDirection: 'row', gap: Space.lg },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   setupCard: { flex: 1.25, minWidth: 0 },
   activityCard: { flex: 0.8, minWidth: 270 },
   setupList: { marginTop: Space.xl, gap: Space.sm },

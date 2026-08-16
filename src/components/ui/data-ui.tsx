@@ -23,15 +23,26 @@ export function DataLoading({ label = 'Daten werden geladen …' }: { label?: st
 }
 
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
+
   return (
-    <View style={styles.errorBanner}>
+    <View style={[styles.errorBanner, compact && styles.errorBannerCompact]}>
       <View style={styles.errorIcon}>
         <AppIcon name="close" size={18} color="#A43F2C" />
       </View>
       <AppText color="#87402F" style={styles.errorCopy}>
         {message}
       </AppText>
-      {onRetry && <ActionButton label="Erneut laden" compact variant="secondary" onPress={onRetry} />}
+      {onRetry && (
+        <ActionButton
+          label="Erneut laden"
+          compact
+          variant="secondary"
+          onPress={onRetry}
+          style={compact ? styles.errorRetryCompact : undefined}
+        />
+      )}
     </View>
   );
 }
@@ -63,9 +74,9 @@ export function FormDialog({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <View style={[styles.backdrop, compact && styles.backdropCompact]}>
         <View style={[styles.dialog, compact && styles.dialogCompact]}>
-          <View style={styles.dialogHeader}>
+          <View style={[styles.dialogHeader, compact && styles.dialogHeaderCompact]}>
             <View style={styles.dialogHeading}>
               <AppText variant="heading">{title}</AppText>
               {description && <AppText color={Palette.inkSoft}>{description}</AppText>}
@@ -80,20 +91,26 @@ export function FormDialog({
           </View>
           <ScrollView
             style={styles.dialogScroll}
-            contentContainerStyle={styles.dialogContent}
+            contentContainerStyle={[styles.dialogContent, compact && styles.dialogContentCompact]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             {children}
           </ScrollView>
           <View style={[styles.dialogFooter, compact && styles.dialogFooterCompact]}>
             {secondaryAction}
-            <View style={styles.footerSpacer} />
-            <ActionButton label="Abbrechen" variant="secondary" onPress={onClose} />
+            {!compact && <View style={styles.footerSpacer} />}
+            <ActionButton
+              label="Abbrechen"
+              variant="secondary"
+              onPress={onClose}
+              style={compact ? styles.dialogFooterButton : undefined}
+            />
             <ActionButton
               label={saving ? 'Wird gespeichert …' : saveLabel}
               icon="check"
               disabled={saving || saveDisabled}
               onPress={onSave}
+              style={compact ? styles.dialogFooterButton : undefined}
             />
           </View>
         </View>
@@ -240,6 +257,8 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.coralSoft,
     padding: Space.md,
   },
+  errorBannerCompact: { flexWrap: 'wrap' },
+  errorRetryCompact: { width: '100%', flexBasis: '100%' },
   errorIcon: {
     width: 34,
     height: 34,
@@ -256,6 +275,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.overlay,
     padding: Space.lg,
   },
+  backdropCompact: { padding: Space.sm },
   dialog: {
     width: '100%',
     maxWidth: 620,
@@ -265,7 +285,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.paper,
     boxShadow: '0 16px 32px rgba(23, 61, 58, 0.2)',
   },
-  dialogCompact: { maxHeight: '96%' },
+  dialogCompact: { maxHeight: '98%', borderRadius: Radius.large },
   dialogHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -274,6 +294,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Palette.line,
   },
+  dialogHeaderCompact: { gap: Space.md, padding: Space.lg },
   dialogHeading: { flex: 1, gap: 4 },
   closeButton: {
     width: 38,
@@ -285,6 +306,7 @@ const styles = StyleSheet.create({
   },
   dialogScroll: { flexGrow: 0 },
   dialogContent: { padding: Space.xl, gap: Space.lg },
+  dialogContentCompact: { padding: Space.lg },
   dialogFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -294,7 +316,8 @@ const styles = StyleSheet.create({
     borderTopColor: Palette.line,
     backgroundColor: '#FBFCF9',
   },
-  dialogFooterCompact: { flexWrap: 'wrap' },
+  dialogFooterCompact: { alignItems: 'stretch', flexDirection: 'column', padding: Space.lg },
+  dialogFooterButton: { width: '100%' },
   footerSpacer: { flex: 1 },
   choiceGroup: { gap: Space.sm },
   choiceList: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
@@ -308,6 +331,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: Palette.white,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   choiceSelected: { borderColor: Palette.forest, backgroundColor: Palette.forest },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },

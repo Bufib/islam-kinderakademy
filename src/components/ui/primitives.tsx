@@ -64,12 +64,16 @@ const cardTones = {
 };
 
 export function Card({ children, style, tone = 'paper', padded = true }: CardProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
+
   return (
     <View
       style={[
         styles.card,
         { backgroundColor: cardTones[tone] },
         padded && styles.cardPadded,
+        padded && compact && styles.cardPaddedCompact,
         tone === 'paper' && styles.paperBorder,
         style,
       ]}>
@@ -122,7 +126,10 @@ export function ActionButton({
         style,
       ]}>
       {icon && <AppIcon name={icon} size={compact ? 17 : 19} color={colors.text} />}
-      <AppText variant="bodyStrong" color={colors.text} style={compact && styles.buttonTextCompact}>
+      <AppText
+        variant="bodyStrong"
+        color={colors.text}
+        style={[styles.buttonText, compact && styles.buttonTextCompact]}>
         {label}
       </AppText>
     </Pressable>
@@ -211,8 +218,11 @@ type SectionHeaderProps = {
 };
 
 export function SectionHeader({ title, description, action }: SectionHeaderProps) {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
+
   return (
-    <View style={styles.sectionHeader}>
+    <View style={[styles.sectionHeader, compact && styles.sectionHeaderCompact]}>
       <View style={styles.sectionHeaderCopy}>
         <AppText variant="heading">{title}</AppText>
         {description && <AppText color={Palette.inkSoft}>{description}</AppText>}
@@ -343,8 +353,11 @@ export function SegmentedControl<T extends string | number>({
   value,
   onChange,
 }: SegmentedControlProps<T>) {
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
+
   return (
-    <View style={styles.segmented}>
+    <View style={[styles.segmented, compact && styles.segmentedCompact]}>
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -422,6 +435,9 @@ const styles = StyleSheet.create({
   cardPadded: {
     padding: Space.xl,
   },
+  cardPaddedCompact: {
+    padding: Space.lg,
+  },
   paperBorder: {
     borderWidth: 1,
     borderColor: Palette.line,
@@ -436,6 +452,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Space.sm,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   buttonCompact: {
     minHeight: 40,
@@ -444,6 +462,10 @@ const styles = StyleSheet.create({
   },
   buttonTextCompact: {
     fontSize: 14,
+  },
+  buttonText: {
+    flexShrink: 1,
+    textAlign: 'center',
   },
   buttonPressed: {
     opacity: 0.82,
@@ -459,6 +481,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   pageScroll: {
     flex: 1,
@@ -515,9 +539,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Space.lg,
   },
+  sectionHeaderCompact: {
+    alignItems: 'flex-start',
+    flexDirection: 'column',
+    gap: Space.md,
+  },
   sectionHeaderCopy: {
     gap: 3,
     flex: 1,
+    minWidth: 0,
   },
   emptyState: {
     minHeight: 300,
@@ -573,8 +603,14 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: Space.sm,
+    width: '100%',
+    minWidth: 0,
+    maxWidth: '100%',
   },
   field: {
+    width: '100%',
+    minWidth: 0,
+    maxWidth: '100%',
     minHeight: 48,
     borderWidth: 1,
     borderColor: Palette.line,
@@ -596,7 +632,12 @@ const styles = StyleSheet.create({
     padding: 4,
     backgroundColor: '#E8ECE9',
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  segmentedCompact: {
+    alignSelf: 'stretch',
   },
   segment: {
     paddingHorizontal: Space.lg,
@@ -604,6 +645,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   segmentSelected: {
     backgroundColor: Palette.forest,

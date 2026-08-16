@@ -57,7 +57,7 @@ export default function CalendarScreen() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { width } = useWindowDimensions();
-  const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const cells = useMemo(() => createMonthCells(visibleMonth), [visibleMonth]);
   const monthTitle = visibleMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
   const visibleSessions = useMemo(
@@ -154,8 +154,8 @@ export default function CalendarScreen() {
       description="Live-Unterricht, Replays und besondere Termine werden hier gebündelt."
       action={isTeam ? <ActionButton label="Termin anlegen" icon="add" disabled={data.lessons.length === 0} onPress={() => openSession()} /> : undefined}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
-      <View style={[styles.layout, compact && styles.column]}>
-        <Card style={styles.calendarCard}>
+      <View style={[styles.layout, stacked && styles.column]}>
+        <Card style={[styles.calendarCard, stacked && styles.fullWidth]}>
           <View style={styles.calendarHeader}>
             <Pressable accessibilityLabel="Vorheriger Monat" onPress={() => changeMonth(-1)} style={styles.arrowButton}>
               <View style={styles.arrowLeft}><AppIcon name="arrow" size={19} color={Palette.ink} /></View>
@@ -181,7 +181,7 @@ export default function CalendarScreen() {
           </View>
         </Card>
 
-        <View style={styles.agendaColumn}>
+        <View style={[styles.agendaColumn, stacked && styles.fullWidth]}>
           <Card tone="mint" style={styles.agendaSummary}>
             <View style={styles.agendaSummaryTop}>
               <View style={styles.agendaIcon}><AppIcon name="calendar" size={24} color={Palette.forest} /></View>
@@ -261,6 +261,7 @@ function capitalize(value: string) { return value.charAt(0).toUpperCase() + valu
 const styles = StyleSheet.create({
   layout: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   calendarCard: { flex: 1.45, minWidth: 0 },
   calendarHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Space.xl },
   arrowButton: { width: 40, height: 40, borderRadius: Radius.small, backgroundColor: '#F0F3F1', alignItems: 'center', justifyContent: 'center' },

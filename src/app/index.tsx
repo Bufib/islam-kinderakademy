@@ -31,6 +31,7 @@ export default function LandingScreen() {
   const { isAuthenticated } = useAuth();
   const compact = width < Layout.desktopBreakpoint;
   const small = width < Layout.compactBreakpoint;
+  const verySmall = width < 360;
 
   const open = (href: string) => router.push(href as Href);
 
@@ -41,7 +42,7 @@ export default function LandingScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={[styles.header, small && styles.headerSmall]}>
         <Pressable accessibilityRole="link" onPress={() => open('/')}>
-          <BrandMark />
+          <BrandMark compact={verySmall} />
         </Pressable>
         <View style={styles.headerActions}>
           {isAuthenticated ? (
@@ -57,12 +58,18 @@ export default function LandingScreen() {
         </View>
       </View>
 
-      <View style={[styles.hero, compact && styles.heroCompact]}>
+      <View style={[styles.hero, compact && styles.heroCompact, small && styles.heroSmall]}>
         <View style={styles.heroCopy}>
           <Pill tone="sun" icon="trophy">
             Islamisches Lernen, das Kinder erreicht
           </Pill>
-          <AppText variant="display" style={[styles.heroTitle, small && styles.heroTitleSmall]}>
+          <AppText
+            variant="display"
+            style={[
+              styles.heroTitle,
+              small && styles.heroTitleSmall,
+              verySmall && styles.heroTitleVerySmall,
+            ]}>
             Wissen, Gemeinschaft und Freude am Glauben.
           </AppText>
           <AppText color={Palette.inkSoft} style={styles.heroDescription}>
@@ -94,7 +101,7 @@ export default function LandingScreen() {
 
         <View style={[styles.previewWrap, compact && styles.previewWrapCompact]}>
           <View style={styles.previewGlow} />
-          <View style={styles.previewCard}>
+          <View style={[styles.previewCard, small && styles.previewCardSmall]}>
             <View style={styles.previewTop}>
               <View style={styles.previewDots}>
                 <View style={[styles.dot, { backgroundColor: Palette.coral }]} />
@@ -137,7 +144,7 @@ export default function LandingScreen() {
         </View>
       </View>
 
-      <View style={styles.benefitSection}>
+      <View style={[styles.benefitSection, small && styles.benefitSectionSmall]}>
         <View style={styles.sectionHeading}>
           <AppText variant="label" color={Palette.forest}>
             ALLES AN EINEM ORT
@@ -152,7 +159,7 @@ export default function LandingScreen() {
         </View>
         <View style={[styles.benefitGrid, compact && styles.benefitGridCompact]}>
           {benefits.map((benefit, index) => (
-            <View key={benefit.title} style={styles.benefitCard}>
+            <View key={benefit.title} style={[styles.benefitCard, small && styles.benefitCardSmall]}>
               <View
                 style={[
                   styles.benefitIcon,
@@ -188,7 +195,7 @@ export default function LandingScreen() {
         />
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, small && styles.footerSmall]}>
         <BrandMark />
         <AppText variant="small" color={Palette.muted}>
           © 2026 Islam-Kinderakademie
@@ -284,14 +291,16 @@ const styles = StyleSheet.create({
     gap: 70,
   },
   heroCompact: { flexDirection: 'column', alignItems: 'stretch', paddingTop: 44, gap: 48 },
-  heroCopy: { flex: 1, maxWidth: 610, alignItems: 'flex-start' },
+  heroSmall: { minHeight: 0, paddingHorizontal: Space.lg, paddingTop: Space.xl, paddingBottom: 48, gap: Space.xxl },
+  heroCopy: { flex: 1, width: '100%', minWidth: 0, maxWidth: 610, alignItems: 'flex-start' },
   heroTitle: { fontSize: 58, lineHeight: 64, letterSpacing: -2.3, marginTop: Space.xl },
-  heroTitleSmall: { fontSize: 39, lineHeight: 45, letterSpacing: -1.4 },
-  heroDescription: { fontSize: 19, lineHeight: 29, maxWidth: 570, marginTop: Space.lg },
+  heroTitleSmall: { fontSize: 36, lineHeight: 42, letterSpacing: -1.25 },
+  heroTitleVerySmall: { fontSize: 32, lineHeight: 38, letterSpacing: -1 },
+  heroDescription: { fontSize: 18, lineHeight: 27, maxWidth: 570, marginTop: Space.lg },
   heroActions: { flexDirection: 'row', gap: Space.md, marginTop: Space.xxl },
   heroActionsSmall: { width: '100%', flexDirection: 'column' },
   trustRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.xl, marginTop: Space.xxl },
-  trustRowSmall: { gap: Space.md },
+  trustRowSmall: { width: '100%', gap: Space.md },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   publicButton: {
     minHeight: 44,
@@ -325,6 +334,7 @@ const styles = StyleSheet.create({
     boxShadow: '0 16px 30px rgba(23, 61, 58, 0.13)',
     gap: Space.lg,
   },
+  previewCardSmall: { padding: Space.lg, borderRadius: Radius.large },
   previewTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   previewDots: { flexDirection: 'row', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -381,6 +391,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.xxl,
     paddingVertical: 86,
   },
+  benefitSectionSmall: { paddingHorizontal: Space.lg, paddingVertical: 56 },
   sectionHeading: { width: '100%', maxWidth: 650, alignItems: 'center' },
   sectionTitle: { textAlign: 'center', marginTop: Space.md },
   sectionDescription: { textAlign: 'center', maxWidth: 570, marginTop: Space.md },
@@ -402,6 +413,7 @@ const styles = StyleSheet.create({
     gap: Space.md,
     backgroundColor: Palette.white,
   },
+  benefitCardSmall: { minHeight: 0, padding: Space.lg },
   benefitIcon: {
     width: 50,
     height: 50,
@@ -425,7 +437,15 @@ const styles = StyleSheet.create({
     gap: Space.xxl,
     backgroundColor: Palette.forestDark,
   },
-  ctaSmall: { width: '90%', flexDirection: 'column', alignItems: 'flex-start', padding: Space.xl },
+  ctaSmall: {
+    width: '92%',
+    minHeight: 0,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    marginVertical: 48,
+    borderRadius: Radius.large,
+    padding: Space.lg,
+  },
   ctaPatternOne: {
     position: 'absolute',
     width: 210,
@@ -458,6 +478,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderTopWidth: 1,
     borderTopColor: Palette.line,
+  },
+  footerSmall: {
+    minHeight: 120,
+    paddingHorizontal: Space.lg,
+    paddingVertical: Space.lg,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: Space.md,
   },
   pressed: { opacity: 0.72 },
 });

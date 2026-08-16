@@ -223,6 +223,6 @@ const styles = StyleSheet.create({
   groupList: { gap: Space.sm },
   groupRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md, borderBottomWidth: 1, borderBottomColor: Palette.line, paddingVertical: Space.lg },
   groupIcon: { width: 48, height: 48, borderRadius: Radius.medium, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
-  groupCopy: { flex: 1, minWidth: 240, gap: 4 },
+  groupCopy: { flex: 1, flexBasis: 240, minWidth: 0, gap: 4 },
   titleLine: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Space.sm },
 });

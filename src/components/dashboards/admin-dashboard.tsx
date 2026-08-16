@@ -24,7 +24,7 @@ const adminActions: { label: string; description: string; icon: AppIconName; hre
 export function AdminDashboard() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { data, isLoading, error, refresh } = useAcademyData();
   const [quizSearch, setQuizSearch] = useState('');
   const [expandedLessonIds, setExpandedLessonIds] = useState<number[]>([]);
@@ -232,8 +232,8 @@ export function AdminDashboard() {
         )}
       </Card>
 
-      <View style={[styles.mainGrid, compact && styles.column]}>
-        <Card style={styles.healthCard}>
+      <View style={[styles.mainGrid, stacked && styles.column]}>
+        <Card style={[styles.healthCard, stacked && styles.fullWidth]}>
           <SectionHeader title="Plattformstatus" description={`${checks.filter((item) => item.done).length} von ${checks.length} Punkten erfüllt`} />
           <View style={styles.checkList}>
             {checks.map((item) => (
@@ -251,7 +251,7 @@ export function AdminDashboard() {
           </View>
         </Card>
 
-        <Card tone="dark" style={styles.systemCard}>
+        <Card tone="dark" style={[styles.systemCard, stacked && styles.fullWidth]}>
           <View style={styles.systemTop}>
             <View style={styles.systemIcon}><AppIcon name="settings" size={24} color={Palette.sun} /></View>
             <Pill tone="mint">Supabase verbunden</Pill>
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   quizTogglePressed: { backgroundColor: Palette.cream },
   quizIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: Palette.mint, alignItems: 'center', justifyContent: 'center' },
-  quizCopy: { flex: 1, minWidth: 210, gap: 2 },
+  quizCopy: { flex: 1, flexBasis: 210, minWidth: 0, gap: 2 },
   quizStatus: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   expandControl: {
     minWidth: 94,
@@ -350,6 +350,7 @@ const styles = StyleSheet.create({
   quizHint: { paddingTop: Space.md },
   mainGrid: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   healthCard: { flex: 1.25, minWidth: 0 },
   systemCard: { flex: 0.75, minWidth: 280, justifyContent: 'space-between', gap: Space.xl },
   systemTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Space.md },

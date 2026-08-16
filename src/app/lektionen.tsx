@@ -1,6 +1,6 @@
 import { Href, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { ChoiceChips, DataLoading, ErrorBanner, IconAction, RowActions } from '@/components/ui/data-ui';
@@ -13,7 +13,7 @@ import {
   PageScaffold,
   Pill,
 } from '@/components/ui/primitives';
-import { Palette, Radius, Space } from '@/constants/design';
+import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademyData } from '@/context/academy-data-context';
 import { useAuth } from '@/context/auth-context';
 import { deleteRecord, setLessonRelease, setQuizRelease } from '@/lib/academy-api';
@@ -25,6 +25,8 @@ type LessonFilter = 'all' | LessonStatus;
 
 export default function LessonsScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
   const { profile } = useAuth();
   const { data, isLoading, error, refresh, execute } = useAcademyData();
   const [filter, setFilter] = useState<LessonFilter>('all');
@@ -259,10 +261,10 @@ export default function LessonsScreen() {
       {actionError && <ErrorBanner message={actionError} />}
       <Card style={styles.toolbar}>
         <View style={styles.filterGrid}>
-          <View style={styles.searchField}>
+          <View style={[styles.searchField, compact && styles.filterCompact]}>
             <Field label="Suche" placeholder="Lektionen durchsuchen" value={search} onChangeText={setSearch} />
           </View>
-          <View style={styles.filterBlock}>
+          <View style={[styles.filterBlock, compact && styles.filterCompact]}>
             <ChoiceChips
               label="Status"
               value={filter}
@@ -276,7 +278,7 @@ export default function LessonsScreen() {
               ]}
             />
           </View>
-          <View style={styles.filterBlock}>
+          <View style={[styles.filterBlock, compact && styles.filterCompact]}>
             <ChoiceChips
               label="Akademiejahr"
               value={yearFilterId}
@@ -286,7 +288,7 @@ export default function LessonsScreen() {
               options={data.academyYears.map((year) => ({ value: year.id, label: year.title }))}
             />
           </View>
-          <View style={styles.filterBlock}>
+          <View style={[styles.filterBlock, compact && styles.filterCompact]}>
             <ChoiceChips
               label="Altersgruppe"
               value={ageGroupFilterId}
@@ -351,7 +353,7 @@ export default function LessonsScreen() {
                 <View style={styles.yearIcon}>
                   <AppIcon name="calendar" size={22} color={Palette.forest} />
                 </View>
-                <View style={styles.yearCopy}>
+                <View style={[styles.yearCopy, compact && styles.copyCompact]}>
                   <AppText variant="heading" color={Palette.white}>{year.title}</AppText>
                   <AppText variant="small" color={Palette.mintStrong}>
                     {journeyGroups.length} Lernreisen · {journeyGroups.reduce((sum, group) => sum + group.lessons.length, 0)} Lektionen
@@ -372,7 +374,7 @@ export default function LessonsScreen() {
                   <View style={styles.journeyIcon}>
                     <AppIcon name="journeys" size={22} color={Palette.forest} />
                   </View>
-                  <View style={styles.journeyCopy}>
+                  <View style={[styles.journeyCopy, compact && styles.copyCompact]}>
                     <View style={styles.titleLine}>
                       <AppText variant="heading">{journey.title}</AppText>
                       <Pill tone={journey.is_published ? 'mint' : 'sun'}>
@@ -470,9 +472,6 @@ export default function LessonsScreen() {
                             </AppText>
                           </View>
                           <View style={styles.chevronButton}>
-                            <AppText variant="small" color={Palette.forest}>
-                              {isExpanded ? 'Schließen' : 'Öffnen'}
-                            </AppText>
                             <AppIcon
                               name="chevron"
                               size={21}
@@ -483,7 +482,7 @@ export default function LessonsScreen() {
                         </Pressable>
 
                         {isExpanded && (
-                          <View style={styles.lessonDetails}>
+                          <View style={[styles.lessonDetails, compact && styles.lessonDetailsCompact]}>
                             {lesson.description && (
                               <AppText color={Palette.inkSoft}>{lesson.description}</AppText>
                             )}
@@ -571,6 +570,7 @@ const styles = StyleSheet.create({
   filterGrid: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: Space.lg },
   searchField: { flex: 1, minWidth: 240 },
   filterBlock: { flex: 1, minWidth: 260 },
+  filterCompact: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: '100%' },
   filterWide: { width: '100%' },
   resultRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
   listCard: { minHeight: 480 },
@@ -584,6 +584,7 @@ const styles = StyleSheet.create({
   journeyHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md },
   journeyIcon: { width: 48, height: 48, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.skySoft },
   journeyCopy: { flex: 1, minWidth: 240, gap: 4 },
+  copyCompact: { minWidth: 0 },
   journeyActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.sm },
   journeyToggle: {
     width: 42,
@@ -609,16 +610,14 @@ const styles = StyleSheet.create({
   lessonIcon: { width: 46, height: 46, borderRadius: Radius.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
   lessonSummary: { flex: 1, minWidth: 0, gap: 4 },
   chevronButton: {
-    minWidth: 94,
+    width: 38,
     height: 38,
     flexShrink: 0,
     flexDirection: 'row',
-    gap: 4,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: Radius.small,
     backgroundColor: Palette.mint,
-    paddingHorizontal: Space.sm,
   },
   chevronExpanded: { transform: [{ rotate: '90deg' }] },
   lessonDetails: {
@@ -627,6 +626,7 @@ const styles = StyleSheet.create({
     paddingBottom: Space.lg,
     paddingRight: Space.sm,
   },
+  lessonDetailsCompact: { marginLeft: 0, paddingHorizontal: Space.sm },
   lessonEditActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -25,7 +25,7 @@ export function ParentDashboard() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const [openedAt] = useState(() => Date.now());
-  const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { enterChildArea } = useAcademy();
   const { data, isLoading, error, refresh } = useAcademyData();
   const upcomingSessions = data.liveSessions
@@ -68,8 +68,8 @@ export function ParentDashboard() {
         <StatCard icon="check" value={String(openQuizzes)} label="Offene Quizze" tone="sun" />
       </View>
 
-      <View style={[styles.mainGrid, compact && styles.column]}>
-        <Card style={styles.childrenCard}>
+      <View style={[styles.mainGrid, stacked && styles.column]}>
+        <Card style={[styles.childrenCard, stacked && styles.fullWidth]}>
           <SectionHeader title="Meine Kinder" description="Profile und Lernstände" action={<ActionButton label="Alle ansehen" variant="quiet" compact onPress={() => router.push('/kinder')} />} />
           {isLoading && data.children.length === 0 ? (
             <DataLoading />
@@ -101,7 +101,7 @@ export function ParentDashboard() {
           )}
         </Card>
 
-        <Card tone="dark" style={styles.nextCard}>
+        <Card tone="dark" style={[styles.nextCard, stacked && styles.fullWidth]}>
           <View style={styles.nextTop}>
             <View style={styles.darkIcon}><AppIcon name="calendar" size={23} color={Palette.sun} /></View>
             <Pill tone="sun">Nächster Termin</Pill>
@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: 'row', gap: Space.lg, flexWrap: 'wrap' },
   mainGrid: { flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   childrenCard: { flex: 1.6, minWidth: 0 },
   nextCard: { flex: 0.8, minWidth: 280, minHeight: 330, justifyContent: 'space-between' },
   nextTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

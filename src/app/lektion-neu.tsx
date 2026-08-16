@@ -73,6 +73,7 @@ function LessonEditor({
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
+  const stacked = width < Layout.contentStackBreakpoint;
   const { execute } = useAcademyData();
   const { profile } = useAuth();
   const isAdmin = profile?.role === 'admin';
@@ -213,8 +214,8 @@ function LessonEditor({
       {data.journeys.length === 0 && (
         <ErrorBanner message="Lege im Curriculum zuerst ein Akademiejahr und eine Lernreise an." />
       )}
-      <View style={[styles.editorLayout, compact && styles.column]}>
-        <View style={styles.mainColumn}>
+      <View style={[styles.editorLayout, stacked && styles.column]}>
+        <View style={[styles.mainColumn, stacked && styles.fullWidth]}>
           <Card>
             <SectionHeader title="Grunddaten" description="Zuordnung und Bezeichnung" />
             <View style={styles.formStack}>
@@ -325,7 +326,7 @@ function LessonEditor({
           </Card>
         </View>
 
-        <View style={styles.sideColumn}>
+        <View style={[styles.sideColumn, stacked && styles.fullWidth]}>
           <Card style={styles.statusCard}>
             <SectionHeader title="Status & Freigabe" />
             <ChoiceChips
@@ -393,15 +394,16 @@ const styles = StyleSheet.create({
   headerActionsCompact: { flexDirection: 'column-reverse' },
   editorLayout: { flexDirection: 'row', alignItems: 'flex-start', gap: Space.lg },
   column: { flexDirection: 'column' },
+  fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },
   mainColumn: { flex: 1.45, minWidth: 0, gap: Space.xl },
   sideColumn: { flex: 0.7, minWidth: 300, gap: Space.lg },
   formStack: { gap: Space.lg, marginTop: Space.xl },
   formRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.md },
   formHalf: { flex: 1, minWidth: 180 },
   stepCard: { gap: Space.lg, padding: Space.lg },
-  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
+  stepHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.md },
   stepIcon: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  stepCopy: { flex: 1, gap: 2 },
+  stepCopy: { flex: 1, flexBasis: 210, minWidth: 0, gap: 2 },
   statusCard: { gap: Space.lg },
   releaseBox: { gap: Space.sm, alignItems: 'flex-start' },
   mediaCard: { gap: Space.md },

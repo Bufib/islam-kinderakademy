@@ -1,11 +1,11 @@
 import * as Linking from 'expo-linking';
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { DataLoading, ErrorBanner } from '@/components/ui/data-ui';
 import { ActionButton, AppText, Card, EmptyState, PageScaffold, Pill, ProgressBar } from '@/components/ui/primitives';
-import { Palette, Radius, Space } from '@/constants/design';
+import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
 import { formatDateTime } from '@/utils/format';
@@ -26,6 +26,8 @@ const sessionPriority = {
 
 export default function LessonDetailScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < Layout.compactBreakpoint;
   const params = useLocalSearchParams<{ id: string }>();
   const lessonId = Number(params.id);
   const { selectedChildId } = useAcademy();
@@ -73,7 +75,7 @@ export default function LessonDetailScreen() {
       description={lesson.description ?? undefined}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
 
-      <Card tone="dark" style={styles.progressCard}>
+      <Card tone="dark" style={[styles.progressCard, compact && styles.progressCardCompact]}>
         <View style={styles.progressCopy}>
           <Pill tone={progress?.status === 'completed' ? 'sun' : 'mint'}>
             {progress?.status === 'completed' ? 'Lektion abgeschlossen' : 'Deine Lektion'}
@@ -187,6 +189,7 @@ export default function LessonDetailScreen() {
 
 const styles = StyleSheet.create({
   progressCard: { flexDirection: 'row', alignItems: 'center', gap: Space.xl },
+  progressCardCompact: { alignItems: 'flex-start', flexDirection: 'column' },
   progressCopy: { flex: 1, alignItems: 'flex-start', gap: Space.md },
   flow: { alignItems: 'stretch' },
   flowCard: { gap: Space.xl },
@@ -199,8 +202,8 @@ const styles = StyleSheet.create({
   connector: { width: 2, height: 26, alignSelf: 'flex-start', marginLeft: 45, backgroundColor: Palette.line },
   liveDetails: { gap: Space.lg },
   liveTime: { flexDirection: 'row', alignItems: 'center', gap: Space.md },
-  liveTimeCopy: { gap: 2 },
+  liveTimeCopy: { flex: 1, minWidth: 0, gap: 2 },
   liveActions: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.sm },
   quizDetails: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
-  quizCopy: { flex: 1, minWidth: 230, gap: Space.sm },
+  quizCopy: { flex: 1, flexBasis: 230, minWidth: 0, gap: Space.sm },
 });
