@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode } from "react";
 import {
   Pressable,
   ScrollView,
@@ -11,19 +11,19 @@ import {
   useWindowDimensions,
   View,
   ViewStyle,
-} from 'react-native';
+} from "react-native";
 
-import { AppIcon, AppIconName } from '@/components/ui/app-icon';
-import { Layout, Palette, Radius, Space } from '@/constants/design';
+import { AppIcon, AppIconName } from "@/components/ui/app-icon";
+import { Layout, Palette, Radius, Space } from "@/constants/design";
 
 type AppTextVariant =
-  | 'display'
-  | 'title'
-  | 'heading'
-  | 'body'
-  | 'bodyStrong'
-  | 'small'
-  | 'label';
+  | "display"
+  | "title"
+  | "heading"
+  | "body"
+  | "bodyStrong"
+  | "small"
+  | "label";
 
 type AppTextProps = {
   children: ReactNode;
@@ -35,13 +35,16 @@ type AppTextProps = {
 
 export function AppText({
   children,
-  variant = 'body',
+  variant = "body",
   color = Palette.ink,
   style,
   numberOfLines,
 }: AppTextProps) {
   return (
-    <Text numberOfLines={numberOfLines} style={[textStyles.base, textStyles[variant], { color }, style]}>
+    <Text
+      numberOfLines={numberOfLines}
+      style={[textStyles.base, textStyles[variant], { color }, style]}
+    >
       {children}
     </Text>
   );
@@ -50,7 +53,7 @@ export function AppText({
 type CardProps = {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
-  tone?: 'paper' | 'mint' | 'sun' | 'sky' | 'coral' | 'dark';
+  tone?: "paper" | "mint" | "sun" | "sky" | "coral" | "dark";
   padded?: boolean;
 };
 
@@ -63,7 +66,12 @@ const cardTones = {
   dark: Palette.forestDark,
 };
 
-export function Card({ children, style, tone = 'paper', padded = true }: CardProps) {
+export function Card({
+  children,
+  style,
+  tone = "paper",
+  padded = true,
+}: CardProps) {
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
 
@@ -74,15 +82,16 @@ export function Card({ children, style, tone = 'paper', padded = true }: CardPro
         { backgroundColor: cardTones[tone] },
         padded && styles.cardPadded,
         padded && compact && styles.cardPaddedCompact,
-        tone === 'paper' && styles.paperBorder,
+        tone === "paper" && styles.paperBorder,
         style,
-      ]}>
+      ]}
+    >
       {children}
     </View>
   );
 }
 
-type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'dark';
+type ButtonVariant = "primary" | "secondary" | "quiet" | "dark";
 
 type ActionButtonProps = {
   label: string;
@@ -92,12 +101,28 @@ type ActionButtonProps = {
   disabled?: boolean;
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
+  lableStyle?: StyleProp<TextStyle>;
 };
 
-const buttonColors: Record<ButtonVariant, { background: string; text: string; border: string }> = {
-  primary: { background: Palette.forest, text: Palette.white, border: Palette.forest },
-  secondary: { background: Palette.paper, text: Palette.ink, border: Palette.line },
-  quiet: { background: 'transparent', text: Palette.forest, border: 'transparent' },
+const buttonColors: Record<
+  ButtonVariant,
+  { background: string; text: string; border: string }
+> = {
+  primary: {
+    background: Palette.forest,
+    text: Palette.white,
+    border: Palette.forest,
+  },
+  secondary: {
+    background: Palette.paper,
+    text: Palette.ink,
+    border: Palette.line,
+  },
+  quiet: {
+    background: "transparent",
+    text: Palette.forest,
+    border: "transparent",
+  },
   dark: { background: Palette.ink, text: Palette.white, border: Palette.ink },
 };
 
@@ -105,10 +130,11 @@ export function ActionButton({
   label,
   onPress,
   icon,
-  variant = 'primary',
+  variant = "primary",
   disabled = false,
   compact = false,
   style,
+  lableStyle,
 }: ActionButtonProps) {
   const colors = buttonColors[variant];
   return (
@@ -124,12 +150,20 @@ export function ActionButton({
         pressed && !disabled && styles.buttonPressed,
         disabled && styles.buttonDisabled,
         style,
-      ]}>
-      {icon && <AppIcon name={icon} size={compact ? 17 : 19} color={colors.text} />}
+      ]}
+    >
+      {icon && (
+        <AppIcon name={icon} size={compact ? 17 : 19} color={colors.text} />
+      )}
       <AppText
         variant="bodyStrong"
         color={colors.text}
-        style={[styles.buttonText, compact && styles.buttonTextCompact]}>
+        style={[
+          styles.buttonText,
+          compact && styles.buttonTextCompact,
+          lableStyle,
+        ]}
+      >
         {label}
       </AppText>
     </Pressable>
@@ -138,19 +172,19 @@ export function ActionButton({
 
 type PillProps = {
   children: ReactNode;
-  tone?: 'mint' | 'sun' | 'sky' | 'coral' | 'neutral';
+  tone?: "mint" | "sun" | "sky" | "coral" | "neutral";
   icon?: AppIconName;
 };
 
 const pillTones = {
   mint: { background: Palette.mint, text: Palette.forest },
-  sun: { background: Palette.sunSoft, text: '#735817' },
-  sky: { background: Palette.skySoft, text: '#2E6474' },
-  coral: { background: Palette.coralSoft, text: '#84412F' },
-  neutral: { background: '#EEF1EF', text: Palette.inkSoft },
+  sun: { background: Palette.sunSoft, text: "#735817" },
+  sky: { background: Palette.skySoft, text: "#2E6474" },
+  coral: { background: Palette.coralSoft, text: "#84412F" },
+  neutral: { background: "#EEF1EF", text: Palette.inkSoft },
 };
 
-export function Pill({ children, tone = 'neutral', icon }: PillProps) {
+export function Pill({ children, tone = "neutral", icon }: PillProps) {
   const colors = pillTones[tone];
   return (
     <View style={[styles.pill, { backgroundColor: colors.background }]}>
@@ -183,19 +217,33 @@ export function PageScaffold({
   return (
     <ScrollView
       style={styles.pageScroll}
-      contentContainerStyle={[styles.pageScrollContent, compact && styles.pageScrollContentCompact]}
+      contentContainerStyle={[
+        styles.pageScrollContent,
+        compact && styles.pageScrollContentCompact,
+      ]}
       keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator>
+      showsVerticalScrollIndicator
+    >
       <View style={styles.pageInner}>
         {(title || eyebrow || description || action) && (
-          <View style={[styles.pageHeader, compact && styles.pageHeaderCompact]}>
+          <View
+            style={[styles.pageHeader, compact && styles.pageHeaderCompact]}
+          >
             <View style={styles.pageHeadingCopy}>
               {eyebrow && (
-                <AppText variant="label" color={Palette.forest} style={styles.eyebrow}>
+                <AppText
+                  variant="label"
+                  color={Palette.forest}
+                  style={styles.eyebrow}
+                >
                   {eyebrow}
                 </AppText>
               )}
-              {title && <AppText variant={compact ? 'title' : 'display'}>{title}</AppText>}
+              {title && (
+                <AppText variant={compact ? "title" : "display"}>
+                  {title}
+                </AppText>
+              )}
               {description && (
                 <AppText color={Palette.inkSoft} style={styles.description}>
                   {description}
@@ -217,15 +265,23 @@ type SectionHeaderProps = {
   action?: ReactNode;
 };
 
-export function SectionHeader({ title, description, action }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  description,
+  action,
+}: SectionHeaderProps) {
   const { width } = useWindowDimensions();
   const compact = width < Layout.compactBreakpoint;
 
   return (
-    <View style={[styles.sectionHeader, compact && styles.sectionHeaderCompact]}>
+    <View
+      style={[styles.sectionHeader, compact && styles.sectionHeaderCompact]}
+    >
       <View style={styles.sectionHeaderCopy}>
         <AppText variant="heading">{title}</AppText>
-        {description && <AppText color={Palette.inkSoft}>{description}</AppText>}
+        {description && (
+          <AppText color={Palette.inkSoft}>{description}</AppText>
+        )}
       </View>
       {action}
     </View>
@@ -254,14 +310,22 @@ export function EmptyState({
       <View style={styles.emptyIcon}>
         <AppIcon name={icon} size={compact ? 25 : 30} color={Palette.forest} />
       </View>
-      <AppText variant={compact ? 'bodyStrong' : 'heading'} style={styles.emptyTitle}>
+      <AppText
+        variant={compact ? "bodyStrong" : "heading"}
+        style={styles.emptyTitle}
+      >
         {title}
       </AppText>
       <AppText color={Palette.inkSoft} style={styles.emptyDescription}>
         {description}
       </AppText>
       {actionLabel && onAction && (
-        <ActionButton label={actionLabel} onPress={onAction} icon="add" compact />
+        <ActionButton
+          label={actionLabel}
+          onPress={onAction}
+          icon="add"
+          compact
+        />
       )}
     </View>
   );
@@ -276,12 +340,17 @@ type ProgressBarProps = {
 export function ProgressBar({
   value,
   color = Palette.forest,
-  trackColor = '#E7ECE9',
+  trackColor = "#E7ECE9",
 }: ProgressBarProps) {
   const safeValue = Math.max(0, Math.min(100, value));
   return (
     <View style={[styles.progressTrack, { backgroundColor: trackColor }]}>
-      <View style={[styles.progressValue, { backgroundColor: color, width: `${safeValue}%` }]} />
+      <View
+        style={[
+          styles.progressValue,
+          { backgroundColor: color, width: `${safeValue}%` },
+        ]}
+      />
     </View>
   );
 }
@@ -290,17 +359,17 @@ type StatCardProps = {
   icon: AppIconName;
   value: string;
   label: string;
-  tone?: 'mint' | 'sun' | 'sky' | 'coral';
+  tone?: "mint" | "sun" | "sky" | "coral";
 };
 
 const statIconColors = {
   mint: Palette.forest,
-  sun: '#846211',
-  sky: '#2E6474',
-  coral: '#934E39',
+  sun: "#846211",
+  sky: "#2E6474",
+  coral: "#934E39",
 };
 
-export function StatCard({ icon, value, label, tone = 'mint' }: StatCardProps) {
+export function StatCard({ icon, value, label, tone = "mint" }: StatCardProps) {
   return (
     <Card tone={tone} style={styles.statCard}>
       <View style={styles.statIcon}>
@@ -321,7 +390,13 @@ type FieldProps = TextInputProps & {
   helper?: string;
 };
 
-export function Field({ label, helper, style, multiline, ...props }: FieldProps) {
+export function Field({
+  label,
+  helper,
+  style,
+  multiline,
+  ...props
+}: FieldProps) {
   return (
     <View style={styles.fieldGroup}>
       <AppText variant="label">{label}</AppText>
@@ -364,10 +439,12 @@ export function SegmentedControl<T extends string | number>({
           <Pressable
             key={option.value}
             onPress={() => onChange(option.value)}
-            style={[styles.segment, selected && styles.segmentSelected]}>
+            style={[styles.segment, selected && styles.segmentSelected]}
+          >
             <AppText
               variant="bodyStrong"
-              color={selected ? Palette.white : Palette.inkSoft}>
+              color={selected ? Palette.white : Palette.inkSoft}
+            >
               {option.label}
             </AppText>
           </Pressable>
@@ -377,60 +454,64 @@ export function SegmentedControl<T extends string | number>({
   );
 }
 
-export function SkeletonLine({ width = '100%' }: { width?: ViewStyle['width'] }) {
+export function SkeletonLine({
+  width = "100%",
+}: {
+  width?: ViewStyle["width"];
+}) {
   return <View style={[styles.skeletonLine, { width }]} />;
 }
 
 const textStyles = StyleSheet.create({
   base: {
-    fontFamily: 'system-ui',
+    fontFamily: "system-ui",
   },
   display: {
     fontSize: 34,
     lineHeight: 40,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -1.1,
   },
   title: {
     fontSize: 25,
     lineHeight: 31,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -0.65,
   },
   heading: {
     fontSize: 19,
     lineHeight: 25,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: -0.3,
   },
   body: {
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '400',
+    fontWeight: "400",
   },
   bodyStrong: {
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   small: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   label: {
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.55,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
 });
 
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.large,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   cardPadded: {
     padding: Space.xl,
@@ -441,18 +522,18 @@ const styles = StyleSheet.create({
   paperBorder: {
     borderWidth: 1,
     borderColor: Palette.line,
-    boxShadow: '0 5px 12px rgba(20, 56, 52, 0.035)',
+    boxShadow: "0 5px 12px rgba(20, 56, 52, 0.035)",
   },
   button: {
     minHeight: 48,
     borderRadius: Radius.medium,
     borderWidth: 1,
     paddingHorizontal: 19,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: Space.sm,
-    maxWidth: '100%',
+    maxWidth: "100%",
     flexShrink: 1,
   },
   buttonCompact: {
@@ -465,7 +546,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     flexShrink: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   buttonPressed: {
     opacity: 0.82,
@@ -478,27 +559,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.pill,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 5,
-    maxWidth: '100%',
+    maxWidth: "100%",
     flexShrink: 1,
   },
   pageScroll: {
     flex: 1,
     minHeight: 0,
-    width: '100%',
-    maxWidth: '100%',
+    width: "100%",
+    maxWidth: "100%",
     backgroundColor: Palette.cream,
   },
   pageScrollContent: {
     flexGrow: 1,
-    width: '100%',
-    maxWidth: '100%',
+    width: "100%",
+    maxWidth: "100%",
     paddingHorizontal: Space.xxl,
     paddingTop: Space.xxl,
     paddingBottom: 64,
-    alignItems: 'center',
+    alignItems: "center",
   },
   pageScrollContentCompact: {
     paddingHorizontal: Space.lg,
@@ -506,22 +587,22 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
   },
   pageInner: {
-    width: '100%',
+    width: "100%",
     minWidth: 0,
     flexShrink: 1,
     maxWidth: Layout.contentMaxWidth,
     gap: Space.xl,
   },
   pageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
     gap: Space.xl,
     marginBottom: Space.sm,
   },
   pageHeaderCompact: {
-    alignItems: 'stretch',
-    flexDirection: 'column',
+    alignItems: "stretch",
+    flexDirection: "column",
   },
   pageHeadingCopy: {
     flex: 1,
@@ -534,14 +615,14 @@ const styles = StyleSheet.create({
     maxWidth: 650,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: Space.lg,
   },
   sectionHeaderCompact: {
-    alignItems: 'flex-start',
-    flexDirection: 'column',
+    alignItems: "flex-start",
+    flexDirection: "column",
     gap: Space.md,
   },
   sectionHeaderCopy: {
@@ -551,8 +632,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     minHeight: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: Space.xxl,
   },
   emptyStateCompact: {
@@ -564,15 +645,15 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 22,
     backgroundColor: Palette.mint,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Space.lg,
   },
   emptyTitle: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptyDescription: {
-    textAlign: 'center',
+    textAlign: "center",
     maxWidth: 430,
     marginTop: 6,
     marginBottom: Space.lg,
@@ -580,37 +661,37 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 8,
     borderRadius: Radius.pill,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressValue: {
-    height: '100%',
+    height: "100%",
     borderRadius: Radius.pill,
   },
   statCard: {
     minWidth: 190,
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Space.lg,
   },
   statIcon: {
     width: 46,
     height: 46,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   fieldGroup: {
     gap: Space.sm,
-    width: '100%',
+    width: "100%",
     minWidth: 0,
-    maxWidth: '100%',
+    maxWidth: "100%",
   },
   field: {
-    width: '100%',
+    width: "100%",
     minWidth: 0,
-    maxWidth: '100%',
+    maxWidth: "100%",
     minHeight: 48,
     borderWidth: 1,
     borderColor: Palette.line,
@@ -620,32 +701,32 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: Palette.ink,
     fontSize: 15,
-    fontFamily: 'system-ui',
+    fontFamily: "system-ui",
     outlineColor: Palette.forest,
   },
   fieldMultiline: {
     minHeight: 112,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   segmented: {
     borderRadius: Radius.medium,
     padding: 4,
-    backgroundColor: '#E8ECE9',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
+    backgroundColor: "#E8ECE9",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignSelf: "flex-start",
+    maxWidth: "100%",
   },
   segmentedCompact: {
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
   },
   segment: {
     paddingHorizontal: Space.lg,
     minHeight: 39,
     borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    maxWidth: '100%',
+    justifyContent: "center",
+    alignItems: "center",
+    maxWidth: "100%",
     flexShrink: 1,
   },
   segmentSelected: {
@@ -654,6 +735,6 @@ const styles = StyleSheet.create({
   skeletonLine: {
     height: 11,
     borderRadius: Radius.pill,
-    backgroundColor: '#E7ECE9',
+    backgroundColor: "#E7ECE9",
   },
 });

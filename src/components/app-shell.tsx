@@ -216,7 +216,6 @@ function Sidebar({
         contentContainerStyle={styles.sidebarContent}
         showsVerticalScrollIndicator>
         <BrandMark inverse />
-
         <View style={styles.sidebarNav}>
           <AppText variant="label" color={Palette.mintStrong} style={styles.navLabel}>
             Navigation

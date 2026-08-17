@@ -56,6 +56,7 @@ export type ChildRow = {
   age_group_id: number;
   avatar_key: string | null;
   created_at: string;
+  gender: "male" | "female" | null;
 };
 
 export type LearningJourneyRow = {
@@ -83,6 +84,7 @@ export type LessonRow = {
   released_at: string | null;
   released_by_profile_id: number | null;
   created_at: string;
+  youtube_url: string | null;
 };
 
 export type LessonStepRow = {
@@ -358,6 +360,7 @@ export type LessonEditorInput = {
   introText: string;
   status: LessonStatus;
   position: number;
+  youtubeUrl?: string | null;
   publishAt?: string | null;
   replayUrl?: string | null;
   liveSession?: {
