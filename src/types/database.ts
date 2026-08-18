@@ -46,6 +46,7 @@ export type AgeGroupRow = {
   max_age: number;
   position: number;
   created_at: string;
+  date_time: string
 };
 
 export type ChildRow = {

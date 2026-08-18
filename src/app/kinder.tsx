@@ -115,9 +115,7 @@ export default function ChildrenScreen() {
     try {
       let parentProfileId =
         profile?.id ??
-        data.profiles.find(
-          (entry) => entry.auth_user_id === user?.id,
-        )?.id ??
+        data.profiles.find((entry) => entry.auth_user_id === user?.id)?.id ??
         null;
 
       if (!parentProfileId) {
@@ -130,15 +128,14 @@ export default function ChildrenScreen() {
         display_name: form.displayName.trim(),
         birth_date: form.birthDate || null,
 
-        // Foreign key -> age_groups.id
+        // Foreign Key -> age_groups.id
         age_group_id: form.ageGroupId,
 
         // male | female
         gender: form.gender,
 
         avatar_key:
-          editing?.avatar_key ??
-          `avatar-${(data.children.length % 6) + 1}`,
+          editing?.avatar_key ?? `avatar-${(data.children.length % 6) + 1}`,
       };
 
       await execute(() =>
@@ -175,6 +172,28 @@ export default function ChildrenScreen() {
     router.push("/dashboard");
   }
 
+  /*
+   * Aus form.ageGroupId wird hier automatisch die
+   * vollständige ausgewählte Altersgruppe gesucht.
+   *
+   * Beispiel:
+   *
+   * {
+   *   id: 1,
+   *   title: "Bis 8 Jahre",
+   *   min_age: 0,
+   *   max_age: 8,
+   *   date_time: "Freitags 17:00 - 17:45 ..."
+   * }
+   */
+  const selectedAgeGroup = data.ageGroups.find(
+    (group) => group.id === form.ageGroupId,
+  ) as
+    | ((typeof data.ageGroups)[number] & {
+        date_time?: string | null;
+      })
+    | undefined;
+
   return (
     <PageScaffold
       eyebrow="Elternbereich"
@@ -190,10 +209,7 @@ export default function ChildrenScreen() {
       }
     >
       {loadError && (
-        <ErrorBanner
-          message={loadError}
-          onRetry={() => void refresh()}
-        />
+        <ErrorBanner message={loadError} onRetry={() => void refresh()} />
       )}
 
       {data.ageGroups.length === 0 && (
@@ -201,18 +217,11 @@ export default function ChildrenScreen() {
       )}
 
       <View style={[styles.layout, stacked && styles.column]}>
-        <Card
-          style={[
-            styles.profilesCard,
-            stacked && styles.fullWidth,
-          ]}
-        >
+        <Card style={[styles.profilesCard, stacked && styles.fullWidth]}>
           <SectionHeader
             title="Kinderprofile"
             description={`${data.children.length} ${
-              data.children.length === 1
-                ? "Profil"
-                : "Profile"
+              data.children.length === 1 ? "Profil" : "Profile"
             }`}
           />
 
@@ -230,20 +239,17 @@ export default function ChildrenScreen() {
             <View style={styles.profileList}>
               {data.children.map((child) => {
                 const ageGroup = data.ageGroups.find(
-                  (entry) =>
-                    entry.id === child.age_group_id,
+                  (entry) => entry.id === child.age_group_id,
                 );
 
-                const progressRows =
-                  data.lessonProgress.filter(
-                    (row) => row.child_id === child.id,
-                  );
+                const progressRows = data.lessonProgress.filter(
+                  (row) => row.child_id === child.id,
+                );
 
                 const progress = progressRows.length
                   ? Math.round(
                       progressRows.reduce(
-                        (sum, row) =>
-                          sum + row.progress_percent,
+                        (sum, row) => sum + row.progress_percent,
                         0,
                       ) / progressRows.length,
                     )
@@ -254,23 +260,19 @@ export default function ChildrenScreen() {
                     key={child.id}
                     style={[
                       styles.profileRow,
-                      compact &&
-                        styles.profileRowCompact,
+                      compact && styles.profileRowCompact,
                     ]}
                   >
                     <View style={styles.avatar}>
                       <AppText variant="heading">
-                        {child.display_name
-                          .charAt(0)
-                          .toUpperCase()}
+                        {child.display_name.charAt(0).toUpperCase()}
                       </AppText>
                     </View>
 
                     <View
                       style={[
                         styles.profileCopy,
-                        compact &&
-                          styles.profileCopyCompact,
+                        compact && styles.profileCopyCompact,
                       ]}
                     >
                       <View style={styles.profileTitleRow}>
@@ -279,30 +281,23 @@ export default function ChildrenScreen() {
                         </AppText>
 
                         <Pill tone="mint">
-                          {ageGroup?.title ??
-                            "Unbekannte Altersgruppe"}
+                          {ageGroup?.title ?? "Unbekannte Altersgruppe"}
                         </Pill>
 
                         {child.gender && (
                           <Pill tone="mint">
-                            {child.gender === "male"
-                              ? "Junge"
-                              : "Mädchen"}
+                            {child.gender === "male" ? "Junge" : "Mädchen"}
                           </Pill>
                         )}
                       </View>
 
                       <ProgressBar value={progress} />
 
-                      <AppText
-                        variant="small"
-                        color={Palette.muted}
-                      >
+                      <AppText variant="small" color={Palette.muted}>
                         {progress}% Gesamtfortschritt ·{" "}
                         {
                           progressRows.filter(
-                            (row) =>
-                              row.status === "completed",
+                            (row) => row.status === "completed",
                           ).length
                         }{" "}
                         Lektionen abgeschlossen
@@ -312,8 +307,7 @@ export default function ChildrenScreen() {
                     <View
                       style={[
                         styles.profileActions,
-                        compact &&
-                          styles.profileActionsCompact,
+                        compact && styles.profileActionsCompact,
                       ]}
                     >
                       <ActionButton
@@ -321,16 +315,12 @@ export default function ChildrenScreen() {
                         icon="arrow"
                         compact
                         variant="secondary"
-                        onPress={() =>
-                          openChildArea(child)
-                        }
+                        onPress={() => openChildArea(child)}
                       />
 
                       <RowActions
                         onEdit={() => openEdit(child)}
-                        onDelete={() =>
-                          void remove(child)
-                        }
+                        onDelete={() => void remove(child)}
                       />
                     </View>
                   </View>
@@ -342,17 +332,10 @@ export default function ChildrenScreen() {
 
         <Card
           tone="mint"
-          style={[
-            styles.guideCard,
-            stacked && styles.fullWidth,
-          ]}
+          style={[styles.guideCard, stacked && styles.fullWidth]}
         >
           <View style={styles.guideIcon}>
-            <AppIcon
-              name="lock"
-              size={24}
-              color={Palette.forest}
-            />
+            <AppIcon name="lock" size={24} color={Palette.forest} />
           </View>
 
           <AppText variant="heading">
@@ -373,55 +356,36 @@ export default function ChildrenScreen() {
                 "Kinderbereich öffnen",
                 "Lernreisen und persönlichen Fortschritt anzeigen",
               ],
-            ].map(
-              ([title, description], index) => (
-                <View
-                  key={title}
-                  style={styles.step}
-                >
-                  <View style={styles.stepNumber}>
-                    <AppText
-                      variant="small"
-                      color={Palette.forest}
-                    >
-                      {index + 1}
-                    </AppText>
-                  </View>
-
-                  <View style={styles.stepCopy}>
-                    <AppText variant="bodyStrong">
-                      {title}
-                    </AppText>
-
-                    <AppText
-                      variant="small"
-                      color={Palette.inkSoft}
-                    >
-                      {description}
-                    </AppText>
-                  </View>
+            ].map(([title, description], index) => (
+              <View key={title} style={styles.step}>
+                <View style={styles.stepNumber}>
+                  <AppText variant="small" color={Palette.forest}>
+                    {index + 1}
+                  </AppText>
                 </View>
-              ),
-            )}
+
+                <View style={styles.stepCopy}>
+                  <AppText variant="bodyStrong">{title}</AppText>
+
+                  <AppText variant="small" color={Palette.inkSoft}>
+                    {description}
+                  </AppText>
+                </View>
+              </View>
+            ))}
           </View>
         </Card>
       </View>
 
       <FormDialog
         visible={dialogOpen}
-        title={
-          editing
-            ? "Kinderprofil bearbeiten"
-            : "Kinderprofil anlegen"
-        }
+        title={editing ? "Kinderprofil bearbeiten" : "Kinderprofil anlegen"}
         description="Es werden nur die für den Lernbereich notwendigen Angaben gespeichert."
         saving={saving}
         onClose={() => setDialogOpen(false)}
         onSave={() => void save()}
       >
-        {formError && (
-          <ErrorBanner message={formError} />
-        )}
+        {formError && <ErrorBanner message={formError} />}
 
         <Field
           label="Anzeigename"
@@ -438,19 +402,56 @@ export default function ChildrenScreen() {
         <ChoiceChips
           label="Altersgruppe"
           value={form.ageGroupId}
-          onChange={(ageGroupId) =>
+          onChange={(ageGroupId) => {
             setForm((current) => ({
               ...current,
               ageGroupId,
-            }))
-          }
-          options={data.ageGroups.map(
-            (ageGroup) => ({
-              value: ageGroup.id,
-              label: ageGroup.title,
-            }),
-          )}
+            }));
+          }}
+          options={data.ageGroups.map((ageGroup) => ({
+            value: ageGroup.id,
+            label: ageGroup.title,
+          }))}
         />
+
+        {selectedAgeGroup && (
+          <View style={styles.ageGroupInfo}>
+            <View style={styles.ageGroupInfoHeader}>
+              <View style={styles.ageGroupInfoIcon}>
+                <AppIcon
+                  name="calendar"
+                  size={20}
+                  color={Palette.forest}
+                />
+              </View>
+
+              <View style={styles.ageGroupInfoTitle}>
+                <AppText variant="bodyStrong">
+                  {selectedAgeGroup.title}
+                </AppText>
+
+                <AppText variant="small" color={Palette.muted}>
+                  Unterrichtszeiten
+                </AppText>
+              </View>
+            </View>
+
+            {selectedAgeGroup.date_time ? (
+              <AppText
+                variant="body"
+                color={Palette.inkSoft}
+                style={styles.ageGroupDateTime}
+              >
+                {selectedAgeGroup.date_time}
+              </AppText>
+            ) : (
+              <AppText variant="small" color={Palette.muted}>
+                Für diese Altersgruppe wurden noch keine Unterrichtszeiten
+                hinterlegt.
+              </AppText>
+            )}
+          </View>
+        )}
 
         <ChoiceChips
           label="Geschlecht"
@@ -609,5 +610,38 @@ const styles = StyleSheet.create({
 
   profileActionsCompact: {
     width: "100%",
+  },
+
+  ageGroupInfo: {
+    borderWidth: 1,
+    borderColor: Palette.line,
+    borderRadius: Radius.medium,
+    padding: Space.lg,
+    gap: Space.md,
+    backgroundColor: Palette.paper,
+  },
+
+  ageGroupInfoHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Space.md,
+  },
+
+  ageGroupInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(143, 190, 159, 0.18)",
+  },
+
+  ageGroupInfoTitle: {
+    flex: 1,
+    gap: 2,
+  },
+
+  ageGroupDateTime: {
+    lineHeight: 22,
   },
 });
