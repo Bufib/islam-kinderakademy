@@ -1,6 +1,6 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
-import { Palette, Radius } from "@/constants/design";
+import { Palette, Radius, Layout } from "@/constants/design";
 
 type BrandMarkProps = {
   compact?: boolean;
@@ -23,8 +23,6 @@ type BrandMarkProps = {
 //     </View>
 //   );
 // }
-
-
 
 // const styles = StyleSheet.create({
 //   row: {
@@ -79,14 +77,22 @@ type BrandMarkProps = {
 //   },
 // });
 
-
 export function BrandMark({
   compact = false,
   inverse = false,
 }: BrandMarkProps) {
-  return (
+  const { width } = useWindowDimensions();
+  const desktop = width >= Layout.desktopBreakpoint;
+
+  return desktop ? (
     <Image
       style={{ width: 200, height: 150 }}
+      contentFit="contain"
+      source={require("@/assets/images/logo.png")}
+    />
+  ) : (
+    <Image
+      style={{ width: 100, height: 100 }}
       contentFit="contain"
       source={require("@/assets/images/logo.png")}
     />
