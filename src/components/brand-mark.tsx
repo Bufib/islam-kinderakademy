@@ -92,7 +92,7 @@ export function BrandMark({
     />
   ) : (
     <Image
-      style={{ width: 100, height: 100 }}
+      style={{ width: 90, height: 90 }}
       contentFit="contain"
       source={require("@/assets/images/logo.png")}
     />
