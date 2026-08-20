@@ -196,9 +196,8 @@ export default function LandingScreen() {
       </View>
 
       <View style={[styles.footer, small && styles.footerSmall]}>
-        <BrandMark />
         <AppText variant="small" color={Palette.muted}>
-          © 2026 Islam-Kinderakademie
+          © {new Date().getFullYear()} Islam-Kinderakademie
         </AppText>
       </View>
     </ScrollView>
@@ -475,7 +474,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Space.xxl,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     borderTopWidth: 1,
     borderTopColor: Palette.line,
   },
