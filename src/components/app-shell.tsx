@@ -588,6 +588,7 @@ const styles = StyleSheet.create({
   },
   prototypeCopy: {
     flex: 1,
+    marginBottom: 5
   },
   prototypeTitle: {
     fontWeight: '700',
