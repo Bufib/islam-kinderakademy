@@ -1,6 +1,6 @@
-import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-import { Palette, Radius, Layout } from "@/constants/design";
+import { Layout } from "@/constants/design";
 
 type BrandMarkProps = {
   compact?: boolean;

@@ -1,7 +1,7 @@
-import {
+import type {
   YoutubePlayerState,
   YoutubeVideoPlayerProps,
-  type YoutubeVideoPlayerRef,
+  YoutubeVideoPlayerRef,
 } from "@/constants/Types";
 import React, {
   forwardRef,

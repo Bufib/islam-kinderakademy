@@ -19,6 +19,10 @@ import {
 import { Layout, Palette, Radius, Space } from "@/constants/design";
 import { useAcademyData } from "@/context/academy-data-context";
 import { supabase } from "@/lib/supabase";
+import type {
+  MonthlyPaymentRow,
+  PaymentAgreementRow,
+} from "@/types/database";
 import { formatDateTime } from "@/utils/format";
 
 /* ============================================================
@@ -50,8 +54,8 @@ const adminActions: {
     href: "/lektionen",
   },
   {
-    label: "Gruppen",
-    description: "Kinder und Lehrkräfte zuordnen",
+    label: "Zeitgruppen",
+    description: "Unterrichtszeiten und Freigaben",
     icon: "groups",
     href: "/gruppen",
   },
@@ -86,41 +90,6 @@ const adminActions: {
     href: "/abgaben",
   },
 ];
-
-/* ============================================================
- * PAYMENT TYPES
- * ============================================================ */
-
-type PaymentAgreementRow = {
-  id: number;
-  auth_user_id: string;
-
-  payment_method: "paypal" | "bank_transfer";
-
-  monthly_amount_cents: number;
-
-  payment_accepted: boolean;
-
-  accepted_at: string;
-
-  agreement_status: "active" | "cancelled";
-
-  created_at: string;
-};
-
-type MonthlyPaymentRow = {
-  id: number;
-
-  payment_agreement_id: number;
-
-  billing_month: string;
-
-  amount_cents: number;
-
-  status: "pending" | "paid" | "overdue" | "waived";
-
-  paid_at: string | null;
-};
 
 /* ============================================================
  * HELPERS
@@ -198,6 +167,10 @@ export function AdminDashboard() {
     (session) => session.status === "scheduled" || session.status === "live",
   ).length;
 
+  const pendingTimeGroupRequests = data.groupMembers.filter(
+    (membership) => membership.membership_status === "pending",
+  ).length;
+
   const completedProgress = data.lessonProgress.filter(
     (row) => row.status === "completed",
   ).length;
@@ -229,7 +202,7 @@ export function AdminDashboard() {
       href: "/lektionen",
     },
     {
-      label: "Eingerichtete Gruppen",
+      label: "Eingerichtete Zeitgruppen",
       done: data.groups.length > 0,
       href: "/gruppen",
     },
@@ -260,6 +233,7 @@ export function AdminDashboard() {
               id,
               auth_user_id,
               payment_method,
+              payer_name,
               monthly_amount_cents,
               payment_accepted,
               accepted_at,
@@ -498,6 +472,13 @@ export function AdminDashboard() {
         />
 
         <StatCard
+          icon="clock"
+          value={String(pendingTimeGroupRequests)}
+          label="Zeitgruppenanfragen"
+          tone="sun"
+        />
+
+        <StatCard
           icon="lessons"
           value={String(publishedLessons)}
           label="Veröffentlichte Lektionen"
@@ -598,6 +579,12 @@ export function AdminDashboard() {
                   <View style={styles.paymentAccountCopy}>
                     <AppText variant="bodyStrong">
                       {account?.display_name ?? "Unbekanntes Konto"}
+                    </AppText>
+
+                    <AppText variant="small" color={Palette.inkSoft}>
+                      Zahlung über:{" "}
+                      {agreement.payer_name ??
+                        "Nicht angegeben (Bestandskonto)"}
                     </AppText>
 
                     <AppText variant="small" color={Palette.muted}>
@@ -920,8 +907,9 @@ export function AdminDashboard() {
             </AppText>
 
             <AppText color="#CDE0D7">
-              {data.groups.length} Gruppen · {scheduledSessions} aktive Termine
-              · {data.messages.length} Mitteilungen
+              {data.groups.length} Zeitgruppen · {scheduledSessions} aktive Termine
+              · {pendingTimeGroupRequests} offene Freigaben · {data.messages.length}{" "}
+              Mitteilungen
             </AppText>
           </View>
 

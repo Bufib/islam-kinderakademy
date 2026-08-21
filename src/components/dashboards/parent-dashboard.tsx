@@ -80,6 +80,17 @@ export function ParentDashboard() {
               {data.children.slice(0, 4).map((child) => {
                 const rows = data.lessonProgress.filter((progress) => progress.child_id === child.id);
                 const percent = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.progress_percent, 0) / rows.length) : 0;
+                const membership = data.groupMembers
+                  .filter(
+                    (entry) =>
+                      entry.child_id === child.id &&
+                      (entry.membership_status === 'approved' ||
+                        entry.membership_status === 'pending')
+                  )
+                  .sort((a, b) => b.requested_at.localeCompare(a.requested_at))[0];
+                const timeGroup = data.groups.find(
+                  (group) => group.id === membership?.group_id
+                );
                 return (
                   <View key={child.id} style={styles.childRow}>
                     <View style={styles.childAvatar}><AppText variant="bodyStrong">{child.display_name.charAt(0).toUpperCase()}</AppText></View>
@@ -89,6 +100,11 @@ export function ParentDashboard() {
                         <Pill>
                           {data.ageGroups.find((group) => group.id === child.age_group_id)?.title ?? 'Ohne Altersgruppe'}
                         </Pill>
+                        {membership && timeGroup && (
+                          <Pill tone={membership.membership_status === 'approved' ? 'mint' : 'sun'}>
+                            {timeGroup.name} · {membership.membership_status === 'approved' ? 'freigeschaltet' : 'angefragt'}
+                          </Pill>
+                        )}
                       </View>
                       <ProgressBar value={percent} />
                       <AppText variant="small" color={Palette.muted}>{percent}% Fortschritt</AppText>
@@ -108,7 +124,7 @@ export function ParentDashboard() {
           </View>
           <View style={styles.nextCopy}>
             <AppText variant="heading" color={Palette.white}>{nextSession?.title || (nextSession ? data.lessons.find((lesson) => lesson.id === nextSession.lesson_id)?.title : 'Noch kein Unterricht geplant')}</AppText>
-            <AppText color="#CDE0D7">{nextSession ? formatDateTime(nextSession.starts_at) : 'Sobald eine Gruppe einen Termin erhält, stehen hier Zeit und Zugang bereit.'}</AppText>
+            <AppText color="#CDE0D7">{nextSession ? formatDateTime(nextSession.starts_at) : 'Sobald eine Zeitgruppe einen Termin erhält, stehen hier Zeit und Zugang bereit.'}</AppText>
           </View>
           {nextSession?.meeting_url ? (
             <ActionButton label="Zoom öffnen" icon="external" variant="secondary" onPress={() => void Linking.openURL(nextSession.meeting_url!)} />

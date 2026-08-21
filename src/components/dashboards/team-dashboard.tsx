@@ -12,7 +12,7 @@ const quickActions: { label: string; description: string; icon: AppIconName; hre
   { label: 'Curriculum', description: 'Lernreisen strukturieren', icon: 'curriculum', href: '/curriculum' },
   { label: 'Lektionen', description: 'Inhalte und Schritte', icon: 'lessons', href: '/lektionen' },
   { label: 'Kalender', description: 'Live-Unterricht planen', icon: 'calendar', href: '/kalender' },
-  { label: 'Gruppen', description: 'Kinder organisieren', icon: 'groups', href: '/gruppen' },
+  { label: 'Zeitgruppen', description: 'Unterrichtszeiten und Freigaben', icon: 'groups', href: '/gruppen' },
   { label: 'Mitteilungen', description: 'Familien informieren', icon: 'messages', href: '/mitteilungen' },
   { label: 'Medien', description: 'Dateien bereitstellen', icon: 'media', href: '/medien' },
   { label: 'Abzeichen', description: 'Lernziele verleihen', icon: 'trophy', href: '/abzeichen' },
@@ -26,7 +26,7 @@ export function TeamDashboard() {
   const { data, isLoading, error, refresh } = useAcademyData();
   const setup = [
     { label: 'Akademiejahr anlegen', done: data.academyYears.length > 0, href: '/curriculum' },
-    { label: 'Gruppen einrichten', done: data.groups.length > 0, href: '/gruppen' },
+    { label: 'Zeitgruppen einrichten', done: data.groups.length > 0, href: '/gruppen' },
     { label: 'Lernreisen erstellen', done: data.journeys.length > 0, href: '/curriculum' },
     { label: 'Erste Lektion veröffentlichen', done: data.lessons.some((lesson) => lesson.status === 'published'), href: '/lektion-neu' },
   ];
@@ -45,7 +45,7 @@ export function TeamDashboard() {
       action={<ActionButton label="Neue Lektion" icon="add" onPress={() => router.push('/lektion-neu')} />}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
       <View style={styles.statsGrid}>
-        <StatCard icon="groups" value={String(data.groups.length)} label="Gruppen" tone="mint" />
+        <StatCard icon="groups" value={String(data.groups.length)} label="Zeitgruppen" tone="mint" />
         <StatCard icon="lessons" value={String(data.lessons.length)} label="Lektionen" tone="sky" />
         <StatCard icon="children" value={String(data.children.length)} label="Kinderprofile" tone="sun" />
         <StatCard icon="check" value={String(data.submissions.length)} label="Abgaben" tone="coral" />

@@ -63,7 +63,7 @@ export default function MessagesScreen() {
       return;
     }
     if (form.audience === 'group' && !form.groupId) {
-      setFormError('Wähle eine Gruppe aus.');
+      setFormError('Wähle eine Zeitgruppe aus.');
       return;
     }
     setSaving(true);
@@ -98,7 +98,7 @@ export default function MessagesScreen() {
     <PageScaffold
       eyebrow={isTeam ? 'Team-Bereich' : 'Elternbereich'}
       title="Mitteilungen"
-      description={isTeam ? 'Nachrichten an Familien, Profile oder Gruppen veröffentlichen.' : 'Hinweise des Akademie-Teams und Erinnerungen erscheinen hier.'}
+      description={isTeam ? 'Nachrichten an Familien, Profile oder Zeitgruppen veröffentlichen.' : 'Hinweise des Akademie-Teams und Erinnerungen erscheinen hier.'}
       action={isTeam ? <ActionButton label="Mitteilung verfassen" icon="add" onPress={() => openMessage()} /> : undefined}>
       {loadError && <ErrorBanner message={loadError} onRetry={() => void refresh()} />}
       <View style={styles.filterRow}>
@@ -106,7 +106,7 @@ export default function MessagesScreen() {
           ['any', 'Alle'],
           ['all', 'An alle'],
           ['profile', 'Persönlich'],
-          ['group', 'Gruppen'],
+          ['group', 'Zeitgruppen'],
         ] as const).map(([value, label]) => (
           <Pressable key={value} onPress={() => setFilter(value)}>
             <Pill tone={filter === value ? 'mint' : 'neutral'}>{label}</Pill>
@@ -155,9 +155,9 @@ export default function MessagesScreen() {
         {formError && <ErrorBanner message={formError} />}
         <Field label="Betreff" placeholder="Kurzer Betreff" value={form.subject} onChangeText={(subject) => setForm((current) => ({ ...current, subject }))} />
         <Field label="Nachricht" placeholder="Mitteilung schreiben" multiline value={form.body} onChangeText={(body) => setForm((current) => ({ ...current, body }))} />
-        <ChoiceChips label="Empfängerkreis" value={form.audience} onChange={(audience) => audience && setForm((current) => ({ ...current, audience, recipientId: null, groupId: null }))} options={[{ value: 'all', label: 'Alle Familien' }, { value: 'profile', label: 'Ein Profil' }, { value: 'group', label: 'Eine Gruppe' }]} />
+        <ChoiceChips label="Empfängerkreis" value={form.audience} onChange={(audience) => audience && setForm((current) => ({ ...current, audience, recipientId: null, groupId: null }))} options={[{ value: 'all', label: 'Alle Familien' }, { value: 'profile', label: 'Ein Profil' }, { value: 'group', label: 'Eine Zeitgruppe' }]} />
         {form.audience === 'profile' && <ChoiceChips label="Profil" value={form.recipientId} onChange={(recipientId) => setForm((current) => ({ ...current, recipientId }))} options={data.profiles.filter((entry) => entry.id !== profile?.id).map((entry) => ({ value: entry.id, label: entry.display_name }))} />}
-        {form.audience === 'group' && <ChoiceChips label="Gruppe" value={form.groupId} onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={data.groups.map((entry) => ({ value: entry.id, label: entry.name }))} />}
+        {form.audience === 'group' && <ChoiceChips label="Zeitgruppe" value={form.groupId} onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={data.groups.map((entry) => ({ value: entry.id, label: `${entry.name} · ${entry.schedule_label}` }))} />}
         <ChoiceChips label="Status" value={form.published ? 'published' : 'draft'} onChange={(value) => setForm((current) => ({ ...current, published: value === 'published' }))} options={[{ value: 'draft', label: 'Entwurf' }, { value: 'published', label: 'Sofort veröffentlichen' }]} />
       </FormDialog>
     </PageScaffold>

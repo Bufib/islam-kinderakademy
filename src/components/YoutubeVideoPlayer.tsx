@@ -1,6 +1,6 @@
-import {
+import type {
   YoutubeVideoPlayerProps,
-  type YoutubeVideoPlayerRef,
+  YoutubeVideoPlayerRef,
 } from "@/constants/Types";
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import YoutubePlayer, {

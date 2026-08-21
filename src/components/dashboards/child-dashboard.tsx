@@ -88,7 +88,11 @@ export function ChildDashboard() {
       )
     : null;
   const childGroupIds = data.groupMembers
-    .filter((member) => member.child_id === child.id)
+    .filter(
+      (member) =>
+        member.child_id === child.id &&
+        member.membership_status === 'approved'
+    )
     .map((member) => member.group_id);
   const nextSession = data.liveSessions
     .filter(

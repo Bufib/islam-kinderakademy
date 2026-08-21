@@ -14,6 +14,10 @@ export type ProgressStatus = 'not_started' | 'in_progress' | 'completed';
 export type SubmissionType = 'confirmation' | 'text' | 'audio' | 'image';
 export type MediaType = 'image' | 'audio' | 'video' | 'document';
 export type MessageAudience = 'all' | 'profile' | 'group';
+export type GroupMembershipStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type PaymentMethod = 'paypal' | 'bank_transfer';
+export type PaymentAgreementStatus = 'active' | 'cancelled';
+export type MonthlyPaymentStatus = 'pending' | 'paid' | 'overdue' | 'waived';
 
 export type ProfileRow = {
   id: number;
@@ -46,7 +50,7 @@ export type AgeGroupRow = {
   max_age: number;
   position: number;
   created_at: string;
-  date_time: string
+  date_time: string | null;
 };
 
 export type ChildRow = {
@@ -104,6 +108,7 @@ export type GroupRow = {
   teacher_profile_id: number | null;
   name: string;
   age_group_id: number;
+  schedule_label: string;
   created_at: string;
 };
 
@@ -111,6 +116,10 @@ export type GroupMemberRow = {
   id: number;
   group_id: number;
   child_id: number;
+  membership_status: GroupMembershipStatus;
+  requested_at: string;
+  reviewed_at: string | null;
+  reviewed_by_profile_id: number | null;
   created_at: string;
 };
 
@@ -256,6 +265,32 @@ export type MessageRow = {
   created_at: string;
 };
 
+export type PaymentAgreementRow = {
+  id: number;
+  auth_user_id: string | null;
+  payment_method: PaymentMethod;
+  payer_name: string | null;
+  monthly_amount_cents: number;
+  payment_accepted: boolean;
+  accepted_at: string;
+  agreement_status: PaymentAgreementStatus;
+  consent_version: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MonthlyPaymentRow = {
+  id: number;
+  payment_agreement_id: number;
+  billing_month: string;
+  amount_cents: number;
+  status: MonthlyPaymentStatus;
+  paid_at: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AdminAccountSummary = {
   profile_id: number;
   display_name: string;
@@ -343,6 +378,8 @@ export type AcademyTableRowMap = {
   child_badges: ChildBadgeRow;
   media_assets: MediaAssetRow;
   messages: MessageRow;
+  payment_agreements: PaymentAgreementRow;
+  monthly_payments: MonthlyPaymentRow;
 };
 
 export type AcademyTableName = keyof AcademyTableRowMap;

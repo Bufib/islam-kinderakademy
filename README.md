@@ -6,7 +6,7 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 
 - Kinderansicht mit Übersicht, Lernreisen, Kalender und Islam-Pass
 - Elternbereich mit Kinderprofilen, Terminen und Mitteilungen
-- Team-Bereich mit Curriculum, Lektionen, Gruppen und Medien
+- Team-Bereich mit Curriculum, Lektionen, Zeitgruppen und Medien
 - dreistufiger Lektionsablauf mit Einstiegstext, geplanter Live-Zoom-Vorlesung und separatem Multiple-Choice-Quiz
 - responsive Desktop- und Mobilnavigation
 - öffentliche Werbe-Startseite sowie Registrierung und Anmeldung
@@ -20,6 +20,8 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - kalender- und zeitgestützte Planung von Live-Terminen
 - zweistufige Admin-Freigabe für Lektionen und die Quizze nach beendetem Live-Termin
 - Supabase-Datenschicht für CRUD, Lernfortschritt, Abgaben und Medien
+- verpflichtende Zahlungsart und Name des verwendeten PayPal- oder Bankkontos bei der Registrierung sowie eine geschützte Admin-Zahlungsübersicht
+- mehrere Zeitgruppen pro Altersgruppe mit verpflichtender Elternanfrage und Admin-Freigabe; Lerninhalte bleiben nach Altersgruppen getrennt und sind innerhalb ihrer Zeitgruppen identisch
 
 Das gelieferte Akademiekonzept 2026/27 ist als strukturierter Lehrplan enthalten. Es werden keine künstlichen Auth-Nutzer, Kinderprofile oder Passwörter angelegt.
 
@@ -54,6 +56,7 @@ Die Migrationen gleichen `profiles` und `user_roles` ab, reparieren fehlende Pro
 - `child_lesson_progress`, `child_step_progress` und `submissions`
 - `badges` und `child_badges`
 - `media_assets` und `messages`
+- `payment_agreements` und `monthly_payments`
 
 Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie vom Admin freigegebene Inhalte; Lehrkräfte und Admins können Akademie-Inhalte vorbereiten. Dateien liegen im privaten Storage-Bucket `academy-media` und werden über kurzlebige signierte URLs geöffnet.
 
@@ -63,7 +66,15 @@ Die Migration `20260814070000_lesson_live_quizzes.sql` ergänzt den aktuellen Le
 
 Die Migration `20260815080000_manual_lesson_quiz_release.sql` ergänzt den Freigabe-Workflow. Lektionen müssen den Status `published` haben und werden anschließend manuell durch einen Admin freigegeben. Das zugehörige Quiz kann erst separat freigegeben werden, wenn die Lektion sichtbar und mindestens ein Live-Termin als `completed` markiert ist. Wird eine Lektion gesperrt oder wieder zum Entwurf, wird auch ihr Quiz gesperrt.
 
-Die Migration `20260815100000_dynamic_age_groups.sql` überführt Altersgruppen in eine eigene Tabelle. Admins können sie unter **Curriculum & Altersgruppen** anlegen, bearbeiten und löschen, solange sie nicht von Kindern, Lernreisen oder Gruppen verwendet werden.
+Die Migration `20260815100000_dynamic_age_groups.sql` überführt Altersgruppen in eine eigene Tabelle. Admins können sie unter **Curriculum & Altersgruppen** anlegen, bearbeiten und löschen, solange sie nicht von Kindern, Lernreisen oder Zeitgruppen verwendet werden.
+
+Die Migration `20260821090000_payment_payer_names.sql` sichert den Zahlungsbereich ab. Neue Registrierungen müssen PayPal oder Banküberweisung sowie den Namen des verwendeten Zahlungskontos angeben. Der Monatsbeitrag wird serverseitig auf 14,99 Euro festgelegt; IBAN, Kontonummern und PayPal-Zugangsdaten werden nicht erfasst. Nur Admins können diese Zahlungsdaten lesen.
+
+Die Migration `20260821110000_time_group_approval.sql` trennt Altersgruppen und Zeitgruppen fachlich. Beim Kinderprofil wird zuerst die Altersgruppe und anschließend eine passende Zeitgruppe des aktiven Akademiejahres ausgewählt. Die Altersgruppe und ihre Lerninhalte gelten sofort; die Zeitgruppe bleibt bis zur Admin-Freigabe angefragt. Erst danach werden gruppenspezifische Termine, Links und Mitteilungen zugänglich.
+
+Die Migration `20260821113000_time_group_age_integrity.sql` verhindert nachträgliche Änderungen, durch die Zeitgruppe, Akademiejahr und altersgruppenspezifische Lektion eines Termins auseinanderfallen würden.
+
+Die Migration `20260821114500_time_group_request_serialization.sql` macht gleichzeitige Änderungen eines Kinderprofils und Admin-Entscheidungen konfliktfrei und verhindert neue Freigaben für inaktive Akademiejahre.
 
 3. Unter **Authentication → URL Configuration** die URLs freigeben:
 

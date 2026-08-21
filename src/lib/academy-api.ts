@@ -362,31 +362,48 @@ export async function deleteRecord(
   fail(error);
 }
 
-export async function replaceGroupMembers(
-  groupId: number,
-  childIds: number[]
+export async function saveChildWithTimeGroupRequest(input: {
+  id?: number;
+  displayName: string;
+  birthDate?: string | null;
+  ageGroupId: number;
+  gender: 'male' | 'female';
+  avatarKey: string;
+  timeGroupId: number;
+}) {
+  const { data, error } = await client().rpc(
+    'save_child_with_time_group_request',
+    {
+      target_child_id: input.id ?? null,
+      child_display_name: input.displayName.trim(),
+      child_birth_date: input.birthDate || null,
+      child_age_group_id: input.ageGroupId,
+      child_gender: input.gender,
+      child_avatar_key: input.avatarKey,
+      requested_group_id: input.timeGroupId,
+    }
+  );
+
+  fail(error);
+
+  return Number(data);
+}
+
+export async function reviewTimeGroupRequest(
+  groupMemberId: number,
+  decision: 'approved' | 'rejected'
 ) {
-  const db = client();
+  const { data, error } = await client().rpc(
+    'review_time_group_request',
+    {
+      target_group_member_id: groupMemberId,
+      review_decision: decision,
+    }
+  );
 
-  const { error: deleteError } = await db
-    .from('group_members')
-    .delete()
-    .eq('group_id', groupId);
+  fail(error);
 
-  fail(deleteError);
-
-  if (childIds.length > 0) {
-    const { error: insertError } = await db
-      .from('group_members')
-      .insert(
-        childIds.map((childId) => ({
-          group_id: groupId,
-          child_id: childId,
-        }))
-      );
-
-    fail(insertError);
-  }
+  return Number(data);
 }
 
 /* ============================================================

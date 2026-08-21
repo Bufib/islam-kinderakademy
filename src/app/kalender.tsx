@@ -19,7 +19,7 @@ import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
-import { LiveSessionRow, LiveSessionStatus } from '@/types/database';
+import type { LiveSessionRow, LiveSessionStatus } from '@/types/database';
 import { confirmAction } from '@/utils/feedback';
 import {
   apiErrorMessage,
@@ -68,6 +68,15 @@ export default function CalendarScreen() {
       }),
     [data.liveSessions, visibleMonth]
   );
+  const selectedLesson = data.lessons.find((lesson) => lesson.id === form.lessonId);
+  const selectedJourney = data.journeys.find(
+    (journey) => journey.id === selectedLesson?.learning_journey_id
+  );
+  const compatibleTimeGroups = data.groups.filter(
+    (group) =>
+      group.age_group_id === selectedJourney?.age_group_id &&
+      group.academy_year_id === selectedJourney?.academy_year_id
+  );
 
   function changeMonth(offset: number) {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
@@ -114,6 +123,13 @@ export default function CalendarScreen() {
     const endsAt = combineLocalDateTime(form.date, form.endTime);
     if (!form.lessonId || !startsAt || !endsAt || endsAt <= startsAt) {
       setFormError('Lektion, Datum sowie gültige Start- und Endzeiten sind erforderlich.');
+      return;
+    }
+    if (
+      form.groupId &&
+      !compatibleTimeGroups.some((group) => group.id === form.groupId)
+    ) {
+      setFormError('Die Zeitgruppe muss zur Altersgruppe der Lektion gehören.');
       return;
     }
     setSaving(true);
@@ -207,7 +223,7 @@ export default function CalendarScreen() {
                       <View style={styles.sessionCopy}>
                         <AppText variant="bodyStrong">{session.title || lesson?.title || 'Live-Unterricht'}</AppText>
                         <AppText variant="small" color={Palette.inkSoft}>{formatDateTime(session.starts_at)}</AppText>
-                        <AppText variant="small" color={Palette.muted}>{group?.name ?? 'Für alle Gruppen'}</AppText>
+                        <AppText variant="small" color={Palette.muted}>{group ? `${group.name} · ${group.schedule_label}` : 'Für alle Zeitgruppen'}</AppText>
                         {session.meeting_url && session.status !== 'cancelled' && (
                           <ActionButton label="Zoom öffnen" icon="external" compact variant="secondary" onPress={() => void Linking.openURL(session.meeting_url!)} />
                         )}
@@ -224,8 +240,21 @@ export default function CalendarScreen() {
 
       <FormDialog visible={dialogOpen} title={editing ? 'Termin bearbeiten' : 'Termin anlegen'} saving={saving} onClose={() => setDialogOpen(false)} onSave={() => void save()}>
         {formError && <ErrorBanner message={formError} />}
-        <ChoiceChips label="Lektion" value={form.lessonId} onChange={(lessonId) => setForm((current) => ({ ...current, lessonId }))} options={data.lessons.map((lesson) => ({ value: lesson.id, label: lesson.title }))} />
-        <ChoiceChips label="Gruppe" value={form.groupId} allowEmpty onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={data.groups.map((group) => ({ value: group.id, label: group.name }))} />
+        <ChoiceChips label="Lektion" value={form.lessonId} onChange={(lessonId) => {
+          const lesson = data.lessons.find((entry) => entry.id === lessonId);
+          const journey = data.journeys.find((entry) => entry.id === lesson?.learning_journey_id);
+          setForm((current) => ({
+            ...current,
+            lessonId,
+            groupId: data.groups.some(
+              (group) =>
+                group.id === current.groupId &&
+                group.age_group_id === journey?.age_group_id &&
+                group.academy_year_id === journey?.academy_year_id
+            ) ? current.groupId : null,
+          }));
+        }} options={data.lessons.map((lesson) => ({ value: lesson.id, label: lesson.title }))} />
+        <ChoiceChips label="Zeitgruppe" value={form.groupId} allowEmpty emptyLabel="Alle Zeitgruppen" onChange={(groupId) => setForm((current) => ({ ...current, groupId }))} options={compatibleTimeGroups.map((group) => ({ value: group.id, label: `${group.name} · ${group.schedule_label}` }))} />
         <Field label="Bezeichnung" placeholder="Live-Unterricht" value={form.title} onChangeText={(title) => setForm((current) => ({ ...current, title }))} />
         <DateField label="Datum" value={form.date} onChange={(date) => setForm((current) => ({ ...current, date }))} />
         <View style={styles.formRow}>

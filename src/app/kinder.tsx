@@ -26,12 +26,11 @@ import { useAcademy } from "@/context/academy-context";
 import { useAcademyData } from "@/context/academy-data-context";
 import { useAuth } from "@/context/auth-context";
 import {
-  createRecord,
   deleteRecord,
   ensureCurrentProfileId,
-  updateRecord,
+  saveChildWithTimeGroupRequest,
 } from "@/lib/academy-api";
-import { ChildRow } from "@/types/database";
+import type { ChildRow, GroupMemberRow } from "@/types/database";
 import { apiErrorMessage } from "@/utils/format";
 import { confirmAction } from "@/utils/feedback";
 
@@ -41,6 +40,7 @@ type ChildForm = {
   displayName: string;
   birthDate: string;
   ageGroupId: number | null;
+  timeGroupId: number | null;
   gender: Gender | null;
 };
 
@@ -48,6 +48,7 @@ const emptyForm: ChildForm = {
   displayName: "",
   birthDate: "",
   ageGroupId: null,
+  timeGroupId: null,
   gender: null,
 };
 
@@ -75,12 +76,48 @@ export default function ChildrenScreen() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const activeAcademyYearIds = data.academyYears
+    .filter((year) => year.is_active)
+    .map((year) => year.id);
+
+  function timeGroupsForAgeGroup(ageGroupId: number | null) {
+    if (!ageGroupId) return [];
+
+    return data.groups
+      .filter(
+        (group) =>
+          group.age_group_id === ageGroupId &&
+          activeAcademyYearIds.includes(group.academy_year_id),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+
+  function currentMembership(childId: number): GroupMemberRow | undefined {
+    const memberships = data.groupMembers
+      .filter((member) => member.child_id === childId)
+      .sort((a, b) => b.requested_at.localeCompare(a.requested_at));
+
+    return (
+      memberships.find((member) => member.membership_status === "approved") ??
+      memberships.find((member) => member.membership_status === "pending") ??
+      memberships[0]
+    );
+  }
+
   function openCreate() {
     setEditing(null);
 
+    const defaultAgeGroupId =
+      data.ageGroups.find(
+        (ageGroup) => timeGroupsForAgeGroup(ageGroup.id).length > 0,
+      )?.id ??
+      data.ageGroups[0]?.id ??
+      null;
+
     setForm({
       ...emptyForm,
-      ageGroupId: data.ageGroups[0]?.id ?? null,
+      ageGroupId: defaultAgeGroupId,
+      timeGroupId: timeGroupsForAgeGroup(defaultAgeGroupId)[0]?.id ?? null,
     });
 
     setFormError(null);
@@ -90,10 +127,13 @@ export default function ChildrenScreen() {
   function openEdit(child: ChildRow) {
     setEditing(child);
 
+    const membership = currentMembership(child.id);
+
     setForm({
       displayName: child.display_name,
       birthDate: child.birth_date ?? "",
       ageGroupId: child.age_group_id,
+      timeGroupId: membership?.group_id ?? null,
       gender: child.gender ?? null,
     });
 
@@ -102,10 +142,28 @@ export default function ChildrenScreen() {
   }
 
   async function save() {
-    if (!form.displayName.trim() || !form.ageGroupId || !form.gender) {
+    if (
+      !form.displayName.trim() ||
+      !form.ageGroupId ||
+      !form.timeGroupId ||
+      !form.gender
+    ) {
       setFormError(
-        "Bitte gib einen Anzeigenamen ein und wähle eine Altersgruppe sowie das Geschlecht.",
+        "Bitte gib einen Anzeigenamen ein und wähle Altersgruppe, Zeitgruppe sowie Geschlecht.",
       );
+      return;
+    }
+
+    const selectedTimeGroup = data.groups.find(
+      (group) => group.id === form.timeGroupId,
+    );
+
+    if (
+      !selectedTimeGroup ||
+      selectedTimeGroup.age_group_id !== form.ageGroupId ||
+      !activeAcademyYearIds.includes(selectedTimeGroup.academy_year_id)
+    ) {
+      setFormError("Bitte wähle eine verfügbare Zeitgruppe der Altersgruppe.");
       return;
     }
 
@@ -113,35 +171,28 @@ export default function ChildrenScreen() {
     setFormError(null);
 
     try {
-      let parentProfileId =
+      const parentProfileId =
         profile?.id ??
         data.profiles.find((entry) => entry.auth_user_id === user?.id)?.id ??
         null;
 
       if (!parentProfileId) {
-        parentProfileId = await ensureCurrentProfileId();
+        await ensureCurrentProfileId();
         await refreshProfile();
       }
 
-      const values = {
-        parent_profile_id: parentProfileId,
-        display_name: form.displayName.trim(),
-        birth_date: form.birthDate || null,
-
-        // Foreign Key -> age_groups.id
-        age_group_id: form.ageGroupId,
-
-        // male | female
-        gender: form.gender,
-
-        avatar_key:
-          editing?.avatar_key ?? `avatar-${(data.children.length % 6) + 1}`,
-      };
-
       await execute(() =>
-        editing
-          ? updateRecord("children", editing.id, values)
-          : createRecord("children", values),
+        saveChildWithTimeGroupRequest({
+          id: editing?.id,
+          displayName: form.displayName,
+          birthDate: form.birthDate || null,
+          ageGroupId: form.ageGroupId!,
+          timeGroupId: form.timeGroupId!,
+          gender: form.gender!,
+          avatarKey:
+            editing?.avatar_key ??
+            `avatar-${(data.children.length % 6) + 1}`,
+        }),
       );
 
       setDialogOpen(false);
@@ -172,27 +223,13 @@ export default function ChildrenScreen() {
     router.push("/dashboard");
   }
 
-  /*
-   * Aus form.ageGroupId wird hier automatisch die
-   * vollständige ausgewählte Altersgruppe gesucht.
-   *
-   * Beispiel:
-   *
-   * {
-   *   id: 1,
-   *   title: "Bis 8 Jahre",
-   *   min_age: 0,
-   *   max_age: 8,
-   *   date_time: "Freitags 17:00 - 17:45 ..."
-   * }
-   */
   const selectedAgeGroup = data.ageGroups.find(
     (group) => group.id === form.ageGroupId,
-  ) as
-    | ((typeof data.ageGroups)[number] & {
-        date_time?: string | null;
-      })
-    | undefined;
+  );
+  const availableTimeGroups = timeGroupsForAgeGroup(form.ageGroupId);
+  const selectedTimeGroup = availableTimeGroups.find(
+    (group) => group.id === form.timeGroupId,
+  );
 
   return (
     <PageScaffold
@@ -203,7 +240,12 @@ export default function ChildrenScreen() {
         <ActionButton
           label="Kind hinzufügen"
           icon="add"
-          disabled={data.ageGroups.length === 0}
+          disabled={
+            data.ageGroups.length === 0 ||
+            !data.ageGroups.some(
+              (ageGroup) => timeGroupsForAgeGroup(ageGroup.id).length > 0,
+            )
+          }
           onPress={openCreate}
         />
       }
@@ -215,6 +257,13 @@ export default function ChildrenScreen() {
       {data.ageGroups.length === 0 && (
         <ErrorBanner message="Das Akademie-Team muss zuerst eine Altersgruppe anlegen." />
       )}
+
+      {data.ageGroups.length > 0 &&
+        !data.ageGroups.some(
+          (ageGroup) => timeGroupsForAgeGroup(ageGroup.id).length > 0,
+        ) && (
+          <ErrorBanner message="Das Akademie-Team muss für das aktive Akademiejahr zuerst mindestens eine Zeitgruppe anlegen." />
+        )}
 
       <View style={[styles.layout, stacked && styles.column]}>
         <Card style={[styles.profilesCard, stacked && styles.fullWidth]}>
@@ -240,6 +289,10 @@ export default function ChildrenScreen() {
               {data.children.map((child) => {
                 const ageGroup = data.ageGroups.find(
                   (entry) => entry.id === child.age_group_id,
+                );
+                const membership = currentMembership(child.id);
+                const timeGroup = data.groups.find(
+                  (group) => group.id === membership?.group_id,
                 );
 
                 const progressRows = data.lessonProgress.filter(
@@ -287,6 +340,27 @@ export default function ChildrenScreen() {
                         {child.gender && (
                           <Pill tone="mint">
                             {child.gender === "male" ? "Junge" : "Mädchen"}
+                          </Pill>
+                        )}
+
+                        {membership && timeGroup && (
+                          <Pill
+                            tone={
+                              membership.membership_status === "approved"
+                                ? "mint"
+                                : membership.membership_status === "pending"
+                                  ? "sun"
+                                  : "coral"
+                            }
+                          >
+                            {timeGroup.name} ·{" "}
+                            {membership.membership_status === "approved"
+                              ? "freigeschaltet"
+                              : membership.membership_status === "pending"
+                                ? "angefragt"
+                                : membership.membership_status === "rejected"
+                                  ? "abgelehnt"
+                                  : "nicht mehr aktiv"}
                           </Pill>
                         )}
                       </View>
@@ -345,16 +419,16 @@ export default function ChildrenScreen() {
           <View style={styles.steps}>
             {[
               [
-                "Profil anlegen",
-                "Anzeigename, Altersgruppe und Geschlecht festlegen",
+                "Altersgruppe wählen",
+                "Die passenden Lerninhalte stehen dem Kind sofort zur Verfügung",
               ],
               [
-                "Gruppe zuordnen",
-                "Das Akademie-Team ordnet den passenden Kurs zu",
+                "Zeitgruppe anfragen",
+                "Wähle eine passende Unterrichtszeit aus mehreren Zeitgruppen",
               ],
               [
-                "Kinderbereich öffnen",
-                "Lernreisen und persönlichen Fortschritt anzeigen",
+                "Admin-Freigabe",
+                "Erst nach der Freigabe gehört das Kind zur Zeitgruppe und sieht deren Termine",
               ],
             ].map(([title, description], index) => (
               <View key={title} style={styles.step}>
@@ -403,9 +477,13 @@ export default function ChildrenScreen() {
           label="Altersgruppe"
           value={form.ageGroupId}
           onChange={(ageGroupId) => {
+            const nextTimeGroupId =
+              timeGroupsForAgeGroup(ageGroupId)[0]?.id ?? null;
+
             setForm((current) => ({
               ...current,
               ageGroupId,
+              timeGroupId: nextTimeGroupId,
             }));
           }}
           options={data.ageGroups.map((ageGroup) => ({
@@ -431,25 +509,63 @@ export default function ChildrenScreen() {
                 </AppText>
 
                 <AppText variant="small" color={Palette.muted}>
-                  Unterrichtszeiten
+                  Lerninhalte
                 </AppText>
               </View>
             </View>
 
-            {selectedAgeGroup.date_time ? (
-              <AppText
-                variant="body"
-                color={Palette.inkSoft}
-                style={styles.ageGroupDateTime}
-              >
-                {selectedAgeGroup.date_time}
-              </AppText>
-            ) : (
-              <AppText variant="small" color={Palette.muted}>
-                Für diese Altersgruppe wurden noch keine Unterrichtszeiten
-                hinterlegt.
-              </AppText>
-            )}
+            <AppText
+              variant="body"
+              color={Palette.inkSoft}
+              style={styles.ageGroupDateTime}
+            >
+              Die Inhalte richten sich nach dieser Altersgruppe und sind sofort
+              verfügbar. Alle Zeitgruppen dieser Altersgruppe verwenden dieselben
+              Inhalte.
+            </AppText>
+          </View>
+        )}
+
+        <ChoiceChips
+          label="Gewünschte Zeitgruppe"
+          value={form.timeGroupId}
+          onChange={(timeGroupId) =>
+            setForm((current) => ({
+              ...current,
+              timeGroupId,
+            }))
+          }
+          options={availableTimeGroups.map((group) => ({
+            value: group.id,
+            label: `${group.name} · ${group.schedule_label}`,
+          }))}
+        />
+
+        {form.ageGroupId && availableTimeGroups.length === 0 && (
+          <ErrorBanner message="Für diese Altersgruppe ist im aktiven Akademiejahr noch keine Zeitgruppe verfügbar." />
+        )}
+
+        {selectedTimeGroup && (
+          <View style={styles.ageGroupInfo}>
+            <View style={styles.ageGroupInfoHeader}>
+              <View style={styles.ageGroupInfoIcon}>
+                <AppIcon name="clock" size={20} color={Palette.forest} />
+              </View>
+
+              <View style={styles.ageGroupInfoTitle}>
+                <AppText variant="bodyStrong">
+                  {selectedTimeGroup.name}
+                </AppText>
+                <AppText variant="small" color={Palette.muted}>
+                  {selectedTimeGroup.schedule_label}
+                </AppText>
+              </View>
+            </View>
+
+            <AppText variant="small" color={Palette.inkSoft}>
+              Die Auswahl wird zunächst angefragt. Termine und Zeitgruppenbereiche
+              werden erst nach der Freigabe durch einen Admin zugeordnet.
+            </AppText>
           </View>
         )}
 

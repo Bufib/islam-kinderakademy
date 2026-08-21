@@ -13,14 +13,14 @@ import {
 import { AppState, Platform } from 'react-native';
 
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import type { PaymentMethod } from '@/types/database';
 
 export type AccountRole = 'parent' | 'teacher' | 'admin';
-
-export type PaymentMethod = 'paypal' | 'bank_transfer';
 
 export type SignUpPayment = {
   paymentMethod: PaymentMethod;
   paymentAccepted: boolean;
+  payerName: string;
 };
 
 export type AccountProfile = {
@@ -466,6 +466,21 @@ export function AuthProvider({
         };
       }
 
+      const normalizedPayerName =
+        payment.payerName.trim();
+
+      if (
+        normalizedPayerName.length < 2 ||
+        normalizedPayerName.length > 120
+      ) {
+        return {
+          error:
+            'Bitte gib den Namen des verwendeten Zahlungskontos an.',
+          needsEmailConfirmation:
+            false,
+        };
+      }
+
       const { data, error } =
         await supabase.auth.signUp({
           email,
@@ -482,7 +497,8 @@ export function AuthProvider({
              *
              * Der von uns angelegte
              * Supabase-Trigger übernimmt
-             * payment_method und
+             * payment_method,
+             * payment_payer_name und
              * payment_accepted anschließend
              * in payment_agreements.
              *
@@ -497,6 +513,9 @@ export function AuthProvider({
 
               payment_method:
                 payment.paymentMethod,
+
+              payment_payer_name:
+                normalizedPayerName,
 
               payment_accepted:
                 payment.paymentAccepted,

@@ -247,7 +247,7 @@ export default function CurriculumScreen() {
   async function removeAgeGroup(ageGroup: AgeGroupRow) {
     const confirmed = await confirmAction(
       'Altersgruppe löschen?',
-      `„${ageGroup.title}“ kann nur gelöscht werden, wenn keine Kinder, Gruppen oder Lernreisen zugeordnet sind.`
+      `„${ageGroup.title}“ kann nur gelöscht werden, wenn keine Kinder, Zeitgruppen oder Lernreisen zugeordnet sind.`
     );
     if (!confirmed) return;
     setActionError(null);
@@ -262,7 +262,7 @@ export default function CurriculumScreen() {
   async function removeYear(year: AcademyYearRow) {
     const confirmed = await confirmAction(
       'Akademiejahr löschen?',
-      'Alle zugehörigen Lernreisen, Lektionen, Gruppen und Fortschrittsdaten werden mitgelöscht.'
+      'Alle zugehörigen Lernreisen, Lektionen, Zeitgruppen und Fortschrittsdaten werden mitgelöscht.'
     );
     if (!confirmed) return;
     setActionError(null);
@@ -456,7 +456,7 @@ export default function CurriculumScreen() {
       <FormDialog
         visible={ageGroupDialog}
         title={editingAgeGroup ? 'Altersgruppe bearbeiten' : 'Altersgruppe anlegen'}
-        description="Die Altersgruppe steht anschließend für Kinder, Gruppen und Lernreisen zur Verfügung."
+        description="Die Altersgruppe steht anschließend für Kinder, Zeitgruppen und Lernreisen zur Verfügung."
         saving={saving}
         onClose={() => setAgeGroupDialog(false)}
         onSave={() => void saveAgeGroup()}>

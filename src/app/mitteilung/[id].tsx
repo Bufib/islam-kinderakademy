@@ -45,7 +45,7 @@ export default function MessageDetailScreen() {
     message.audience === 'all'
       ? 'Alle Familien'
       : message.audience === 'group'
-        ? group?.name ?? 'Gruppe'
+        ? group?.name ?? 'Zeitgruppe'
         : recipient?.display_name ?? 'Persönliche Mitteilung';
 
   return (

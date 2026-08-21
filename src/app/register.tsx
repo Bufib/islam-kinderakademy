@@ -10,9 +10,8 @@ import {
 import { ActionButton, AppText } from "@/components/ui/primitives";
 import { Palette, Radius, Space } from "@/constants/design";
 import { useAuth } from "@/context/auth-context";
+import type { PaymentMethod } from "@/types/database";
 import { translateAuthError } from "@/utils/auth-errors";
-
-type PaymentMethod = "paypal" | "bank_transfer";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -27,6 +26,7 @@ export default function RegisterScreen() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
     null,
   );
+  const [payerName, setPayerName] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -76,11 +76,28 @@ export default function RegisterScreen() {
       return;
     }
 
+    const normalizedPayerName = payerName.trim();
+
+    if (normalizedPayerName.length < 2) {
+      setError(
+        paymentMethod === "paypal"
+          ? "Bitte gib den Namen deines PayPal-Kontos an."
+          : "Bitte gib den Namen des Kontoinhabers an.",
+      );
+      return;
+    }
+
+    if (normalizedPayerName.length > 120) {
+      setError("Der Name des Zahlungskontos darf höchstens 120 Zeichen haben.");
+      return;
+    }
+
     setSubmitting(true);
 
     const result = await signUp(normalizedName, normalizedEmail, password, {
       paymentMethod,
       paymentAccepted,
+      payerName: normalizedPayerName,
     });
 
     setSubmitting(false);
@@ -280,6 +297,35 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
 
+          {paymentMethod && (
+            <View style={styles.payerNameField}>
+              <AuthField
+                label={
+                  paymentMethod === "paypal"
+                    ? "Name im PayPal-Konto"
+                    : "Name des Kontoinhabers"
+                }
+                placeholder={
+                  paymentMethod === "paypal"
+                    ? "Name, unter dem du bei PayPal zahlst"
+                    : "Name, von dessen Konto du überweist"
+                }
+                value={payerName}
+                onChangeText={setPayerName}
+                autoCapitalize="words"
+                autoComplete="name"
+                textContentType="name"
+                maxLength={120}
+                returnKeyType="done"
+              />
+
+              <AppText variant="small" color={Palette.muted}>
+                So kann das Akademie-Team deine monatliche Zahlung eindeutig
+                zuordnen. Bitte gib keine IBAN oder Kontonummer ein.
+              </AppText>
+            </View>
+          )}
+
           {/* Zustimmung */}
           <Pressable
             accessibilityRole="checkbox"
@@ -318,7 +364,11 @@ export default function RegisterScreen() {
           label={submitting ? "Konto wird erstellt …" : "Konto erstellen"}
           icon="arrow"
           disabled={
-            submitting || !isConfigured || !paymentAccepted || !paymentMethod
+            submitting ||
+            !isConfigured ||
+            !paymentAccepted ||
+            !paymentMethod ||
+            payerName.trim().length < 2
           }
           onPress={() => void submit()}
           style={styles.submitButton}
@@ -394,6 +444,10 @@ const styles = StyleSheet.create({
   paymentOptionText: {
     flex: 1,
     gap: 2,
+  },
+
+  payerNameField: {
+    gap: Space.xs,
   },
 
   radioOuter: {

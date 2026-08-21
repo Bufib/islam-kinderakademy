@@ -384,6 +384,14 @@ function LessonEditor({
     journeyId ??
     data.journeys[0]?.id ??
     null;
+  const effectiveJourney = data.journeys.find(
+    (journey) => journey.id === effectiveJourneyId,
+  );
+  const compatibleTimeGroups = data.groups.filter(
+    (group) =>
+      group.age_group_id === effectiveJourney?.age_group_id &&
+      group.academy_year_id === effectiveJourney?.academy_year_id,
+  );
 
   /*
    * ============================================================
@@ -429,6 +437,17 @@ function LessonEditor({
     if (
       hasLiveSession
     ) {
+      if (
+        liveGroupId &&
+        !compatibleTimeGroups.some((group) => group.id === liveGroupId)
+      ) {
+        setFormError(
+          'Die Zeitgruppe muss zur Altersgruppe der ausgewählten Lernreise gehören.',
+        );
+
+        return;
+      }
+
       const startsAt =
         combineLocalDateTime(
           liveDate,
@@ -763,9 +782,24 @@ function LessonEditor({
                 value={
                   effectiveJourneyId
                 }
-                onChange={
-                  setJourneyId
-                }
+                onChange={(nextJourneyId) => {
+                  setJourneyId(nextJourneyId);
+
+                  const nextJourney = data.journeys.find(
+                    (journey) => journey.id === nextJourneyId,
+                  );
+
+                  setLiveGroupId((currentGroupId) =>
+                    data.groups.some(
+                      (group) =>
+                        group.id === currentGroupId &&
+                        group.age_group_id === nextJourney?.age_group_id &&
+                        group.academy_year_id === nextJourney?.academy_year_id,
+                    )
+                      ? currentGroupId
+                      : null,
+                  );
+                }}
                 options={data.journeys.map(
                   (
                     journey,
@@ -1026,7 +1060,7 @@ function LessonEditor({
                   />
 
                   <ChoiceChips
-                    label="Gruppe (optional)"
+                    label="Zeitgruppe (optional)"
                     value={
                       liveGroupId
                     }
@@ -1034,14 +1068,13 @@ function LessonEditor({
                     onChange={
                       setLiveGroupId
                     }
-                    options={data.groups.map(
+                    options={compatibleTimeGroups.map(
                       (
                         group,
                       ) => ({
                         value:
                           group.id,
-                        label:
-                          group.name,
+                        label: `${group.name} · ${group.schedule_label}`,
                       }),
                     )}
                   />

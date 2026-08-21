@@ -10,7 +10,7 @@ Die Islam-Kinderakademie ist eine web-first Lernplattform für islamischen Kinde
 - geschützte Familien-, Kinder- und Teambereiche,
 - Live-Unterricht über externe Zoom-Links,
 - kleine interaktive Lerneinheiten,
-- Kinderprofile, Gruppen und Lernfortschritt,
+- Kinderprofile, Zeitgruppen und Lernfortschritt,
 - Mitteilungen, Abgaben, Medien und Abzeichen.
 
 Web ist die wichtigste Plattform. Die gemeinsame React-Native-Codebasis soll zusätzlich auf iOS und Android funktionieren.
@@ -112,7 +112,7 @@ Geschützte Routen:
 - `/lektion/[id]`
 - `/quiz/[lessonId]` – eigenständiges Multiple-Choice-Quiz für das ausgewählte Kind
 - `/quiz-bearbeiten` – Quizverwaltung für Lehrkräfte und Admins
-- `/gruppen`
+- `/gruppen` – Zeitgruppen, Unterrichtszeiten und Admin-Freigaben
 - `/medien`
 - `/abzeichen`
 - `/abgaben`
@@ -134,7 +134,7 @@ Zentrale Dateien:
 
 Unterstützte Abläufe:
 
-- Registrierung mit Anzeigename, E-Mail und Passwort
+- Registrierung mit Anzeigename, E-Mail, Passwort, Zahlungsart und dem Namen des verwendeten Zahlungskontos
 - optionale E-Mail-Bestätigung über Supabase
 - Anmeldung mit E-Mail und Passwort
 - persistente Sitzung im Browser und auf nativen Geräten
@@ -148,10 +148,13 @@ Wiederholte Supabase-Auth-Ereignisse für denselben Nutzer, etwa `SIGNED_IN` ode
 
 Der globale Ladebildschirm in `src/app/_layout.tsx` ist nur für die initiale Sitzung beziehungsweise das erste noch nicht vorhandene Profil vorgesehen. Eine spätere Profilaktualisierung läuft mit dem bestehenden Profil im Hintergrund und darf die aktuelle Route nicht ausblenden.
 
-Beim Registrieren schreibt die App `display_name` in `user_metadata`. Der Datenbanktrigger `handle_new_auth_user()` erstellt anschließend:
+Beim Registrieren schreibt die App `display_name`, `payment_method`, `payment_payer_name` und `payment_accepted` in `user_metadata`. Datenbanktrigger erstellen anschließend:
 
 1. einen Datensatz in `profiles`,
-2. einen Datensatz in `user_roles` mit der Rolle `parent`.
+2. einen Datensatz in `user_roles` mit der Rolle `parent`,
+3. eine aktive `payment_agreements`-Zahlungsvereinbarung mit dem serverseitig festgelegten Monatsbeitrag von 14,99 Euro.
+
+Der Name des Zahlungskontos ist bei neuen Registrierungen verpflichtend und bezeichnet bei PayPal den PayPal-Kontonamen beziehungsweise bei Banküberweisung den Namen des Kontoinhabers. Es werden keine IBAN, Kontonummern oder PayPal-Zugangsdaten erfasst. Nur Admins dürfen Zahlungsvereinbarungen und Monatszahlungen lesen. Vor Einführung des Feldes angelegte Bestandsvereinbarungen können noch keinen Zahlernamen enthalten.
 
 Supabase verwaltet eigentliche Auth-Nutzer in `auth.users`. Niemals eine eigene Passworttabelle anlegen.
 
@@ -204,11 +207,19 @@ Ausnahme: absolute Live-Terminzeiten verwenden `timestamp with time zone`, damit
 - `role`
 - `created_at`
 
+#### `payment_agreements`
+
+Zahlungsvereinbarung eines registrierten Auth-Kontos mit Zahlungsart, `payer_name`, festem Monatsbeitrag, Zustimmung und Status. Der Zahlername dient der manuellen Zuordnung eingehender PayPal- oder Bankzahlungen im Admin-Dashboard.
+
+#### `monthly_payments`
+
+Monatliche Soll- und Zahlungsstatus einer Zahlungsvereinbarung. Zahlungsdaten sind ausschließlich für Admins lesbar.
+
 ### Akademiestruktur
 
 #### `age_groups`
 
-Frei verwaltbare Altersgruppen mit Titel, optionalem Altersbereich und Reihenfolge. Admins pflegen sie im Curriculum. Kinder, Lernreisen und Gruppen referenzieren sie über `age_group_id`; fest codierte Altersgruppenwerte dürfen im Frontend nicht wieder eingeführt werden.
+Frei verwaltbare Altersgruppen mit Titel, optionalem Altersbereich und Reihenfolge. Admins pflegen sie im Curriculum. Kinder, Lernreisen und Zeitgruppen referenzieren sie über `age_group_id`; fest codierte Altersgruppenwerte dürfen im Frontend nicht wieder eingeführt werden. Die Lerninhalte werden ausschließlich über die Altersgruppe getrennt. Das historische Feld `date_time` wird nicht mehr für neue Zuordnungen verwendet.
 
 #### `academy_years`
 
@@ -261,7 +272,7 @@ Enthält die richtige Antwort und eine optionale Erklärung. Familien können di
 
 Speichern Versuche, ausgewählte Antworten, Prozentwert und Bestanden-Status. Die Auswertung erfolgt atomar über `submit_multiple_choice_quiz()`; bestandene Quizze schließen den Lektionsfortschritt ab.
 
-### Familien und Gruppen
+### Familien und Zeitgruppen
 
 #### `children`
 
@@ -269,17 +280,24 @@ Kinderprofile eines Elternprofils mit einer Referenz `age_group_id` auf `age_gro
 
 #### `groups`
 
-Unterrichtsgruppen pro Akademiejahr und Altersgruppe, optional einer Lehrkraft zugeordnet.
+Zeitgruppen pro Akademiejahr und Altersgruppe mit `schedule_label`, optional einer Lehrkraft zugeordnet. Pro Altersgruppe können mehrere Zeitgruppen existieren. Zeitgruppen besitzen keine eigenen Lerninhalte; alle Zeitgruppen derselben Altersgruppe verwenden dieselben altersgruppenspezifischen Lernreisen und Lektionen.
 
 #### `group_members`
 
-Many-to-many-Zuordnung zwischen Gruppen und Kindern.
+Zeitgruppenwünsche und genehmigte Zuordnungen zwischen Zeitgruppen und Kindern. Statuswerte:
+
+- `pending` – von einem Elternkonto angefragt
+- `approved` – durch einen Admin freigeschaltet und tatsächlich zugeordnet
+- `rejected` – durch einen Admin abgelehnt
+- `cancelled` – durch einen späteren Zeitgruppenwunsch oder Altersgruppenwechsel beendet
+
+Neue Kinder werden zusammen mit einer verpflichtenden Zeitgruppenanfrage über `save_child_with_time_group_request()` gespeichert. Die Altersgruppe und ihre Inhalte gelten sofort. Erst `review_time_group_request()` macht eine Zeitgruppe wirksam. Nur genehmigte Zuordnungen geben Zugriff auf gruppenspezifische Termine, Zoom-Links und Mitteilungen.
 
 ### Live-Unterricht
 
 #### `live_sessions`
 
-Zoom- oder andere Live-Termine pro Lektion und optional pro Gruppe. Enthält:
+Zoom- oder andere Live-Termine pro Lektion und optional pro Zeitgruppe. Enthält:
 
 - `starts_at` und `ends_at` als `timestamp with time zone`
 - `meeting_url`
@@ -292,7 +310,7 @@ Die Terminstatus werden im Kalender manuell gepflegt. Nach dem Unterricht muss e
 
 In der Oberfläche werden Terminzeiten nicht als kombinierter ISO-Text eingegeben. Web verwendet ein Kalenderfeld und native Uhrzeitfelder; iOS und Android verwenden den nativen DateTimePicker. Ein Live-Termin hat ein gemeinsames Datum sowie getrennte Felder für Beginn und Ende. Vor dem Schreiben werden diese lokalen Werte wieder in ISO-Zeitpunkte umgewandelt.
 
-Meeting-URLs dürfen nur für berechtigte Gruppen beziehungsweise Mitarbeitende lesbar sein.
+Meeting-URLs dürfen nur für berechtigte Zeitgruppen beziehungsweise Mitarbeitende lesbar sein.
 
 ### Fortschritt und Interaktion
 
@@ -331,7 +349,7 @@ Metadaten für Bilder, Audio, Video oder Dokumente. Die eigentlichen Dateien lie
 
 #### `messages`
 
-Mitteilungen an alle, an ein bestimmtes Profil oder an eine Gruppe.
+Mitteilungen an alle, an ein bestimmtes Profil oder an eine Zeitgruppe.
 
 ### Beziehungen
 
@@ -375,7 +393,7 @@ Grundprinzipien:
 - Anonyme Besucher haben keinen Zugriff auf Akademietabellen.
 - Eltern sehen und verändern nur ihre eigenen Kinderprofile und deren Fortschritt beziehungsweise Abgaben.
 - Eltern sehen nur aktive und veröffentlichte Akademie-Inhalte.
-- Eltern sehen Gruppentermine und Mitteilungen nur für zugängliche Gruppen.
+- Eltern sehen Zeitgruppentermine und Mitteilungen nur für freigeschaltete Zeitgruppen.
 - Lehrkräfte und Admins gelten als Akademieteam und können fachliche Inhalte verwalten.
 - Nur Admins dürfen Rollen verändern.
 - Die öffentliche Werbeseite liest keine geschützten Daten.
@@ -387,6 +405,8 @@ Zentrale RLS-Helfer:
 - `is_academy_staff()`
 - `owns_child(child_id)`
 - `can_access_group(group_id)`
+- `save_child_with_time_group_request(...)`
+- `review_time_group_request(group_member_id, decision)`
 - `list_admin_accounts()`
 - `set_profile_primary_role(profile_id, role)`
 - `save_multiple_choice_quiz(...)`
@@ -408,7 +428,11 @@ Aktueller relevanter Stand:
 - `20260814065000_academy_2026_27_curriculum.sql` – entfernt den Beispiel-Seed und legt das echte Curriculum 2026/27 mit vier Lernreisen und 40 Wochen pro Altersgruppe an
 - `20260814070000_lesson_live_quizzes.sql` – Einstiegstexte, normalisierte Multiple-Choice-Quizze, Versuche, RLS und serverseitige Auswertung
 - `20260815080000_manual_lesson_quiz_release.sql` – getrennte manuelle Admin-Freigaben für Lektion und Quiz
-- `20260815100000_dynamic_age_groups.sql` – frei verwaltbare Altersgruppen und Fremdschlüssel für Kinder, Gruppen und Lernreisen
+- `20260815100000_dynamic_age_groups.sql` – frei verwaltbare Altersgruppen und Fremdschlüssel für Kinder, Zeitgruppen und Lernreisen
+- `20260821090000_payment_payer_names.sql` – Zahlungsvereinbarungen, verpflichtender Zahlername bei neuen Registrierungen und Admin-Leserechte
+- `20260821110000_time_group_approval.sql` – mehrere Zeitgruppen je Altersgruppe, verpflichtende Zeitgruppenanfragen, Admin-Freigabe und altersgruppenkonsistente Termine
+- `20260821113000_time_group_age_integrity.sql` – schützt Altersgruppe und Akademiejahr verwendeter Zeitgruppen, Lernreisen und Termine vor widersprüchlichen Änderungen
+- `20260821114500_time_group_request_serialization.sql` – serialisiert parallele Elternänderungen und Admin-Entscheidungen pro Kind und sperrt Freigaben in inaktiven Akademiejahren
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -428,7 +452,9 @@ Bereits funktional umgesetzt:
 - Passwort-Wiederherstellung per Supabase-E-Mail
 - vollständiges leeres Datenbankschema mit RLS
 - responsive App-Shell für Web und Mobile
-- CRUD für Kinderprofile, Akademiejahre, Lernreisen, Lektionen, Gruppen und Live-Termine
+- CRUD für Kinderprofile, Akademiejahre, Lernreisen, Lektionen, Zeitgruppen und Live-Termine
+- verpflichtende Auswahl einer zur Altersgruppe passenden Zeitgruppe beim Anlegen oder Bearbeiten eines Kindes; die Anfrage wird erst durch einen Admin wirksam
+- mehrere Zeitgruppen teilen die Inhalte ihrer Altersgruppe, während Inhalte verschiedener Altersgruppen getrennt bleiben
 - Admin-CRUD für frei verwaltbare Altersgruppen im Curriculum
 - anklickbare Akademiejahre im Curriculum; beim Einstieg ist kein Jahr vorausgewählt und Lernreisen bleiben verborgen, bis ein Jahr bewusst geöffnet wurde. Danach werden sie nach geöffnetem Jahr und gewählter Altersgruppe gefiltert und direkt dort bearbeitet
 - dreistufiger Lektionseditor für Einstiegstext, geplanten Live-Zoom-Termin und separates Multiple-Choice-Quiz
@@ -442,7 +468,7 @@ Bereits funktional umgesetzt:
 - Fortschritt pro Schritt und Lektion
 - Textantworten und Challenge-Bestätigungen
 - extern erstellte Zoom-Teilnehmerlinks und Replay-Links aus Supabase; keine automatische Zoom-Meeting-Erstellung und kein eingebetteter Zoom-Client
-- Mitteilungen an alle, einzelne Profile oder Gruppen
+- Mitteilungen an alle, einzelne Profile oder Zeitgruppen
 - kompakte Mitteilungsübersicht mit Titel/erstem Satz und separater Detailansicht
 - Abzeichenverwaltung und persönliche Verleihung
 - Abgabenübersicht für das Akademieteam
@@ -451,12 +477,12 @@ Bereits funktional umgesetzt:
 - separates Admin-Dashboard mit Systemkennzahlen und Admin-Schnellzugriffen
 - durchsuchbare Themen- und Quizverwaltung im Admin-Dashboard mit direktem Einstieg in die Lektionsbearbeitung sowie das Anlegen und Bearbeiten von Multiple-Choice-Fragen
 - geschützte Kontenübersicht mit E-Mail-Adressen und Rollenverwaltung
+- verpflichtende Zahlungsart und Zahlername bei der Registrierung sowie geschützte Zahlungsübersicht im Admin-Dashboard
 
 Noch nicht umgesetzt beziehungsweise bewusst auf später verschoben:
 
 - ausformulierte Unterrichtsinhalte für die vorhandenen Themen- und Schrittgerüste
 - Audio- und Bildabgaben aus Lernschritten
-- Zahlungs- oder Mitgliedschaftssystem
 - Push-Benachrichtigungen
 - automatische Erstellung oder Änderung von Zoom-Meetings über die Zoom API
 
