@@ -42,7 +42,7 @@ export default function LandingScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={[styles.header, small && styles.headerSmall]}>
         <Pressable accessibilityRole="link" onPress={() => open('/')}>
-          <BrandMark compact={verySmall} />
+          <BrandMark dark />
         </Pressable>
         <View style={styles.headerActions}>
           {isAuthenticated ? (

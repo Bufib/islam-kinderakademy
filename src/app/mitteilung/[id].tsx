@@ -56,13 +56,13 @@ export default function MessageDetailScreen() {
       <PageScaffold
         eyebrow="Mitteilung"
         title="Mitteilung nicht verfügbar"
-        action={<ActionButton label="Zurück zum Postfach" icon="arrow" variant="secondary" onPress={() => router.replace('/mitteilungen')} />}>
+        action={<ActionButton label="Zurück zu den Mitteilungen" icon="arrow" variant="secondary" onPress={() => router.replace('/mitteilungen')} />}>
         <Card>
           <EmptyState
             icon="messages"
             title="Diese Mitteilung wurde nicht gefunden"
             description="Sie wurde möglicherweise gelöscht oder ist für dein Konto nicht freigegeben."
-            actionLabel="Postfach öffnen"
+            actionLabel="Mitteilungen öffnen"
             onAction={() => router.replace('/mitteilungen')}
           />
         </Card>
@@ -82,9 +82,9 @@ export default function MessageDetailScreen() {
 
   return (
     <PageScaffold
-      eyebrow={activeRole === 'team' ? 'Team-Mitteilung' : 'Postfach'}
+      eyebrow={activeRole === 'team' ? 'Team-Mitteilung' : 'Mitteilungen'}
       title={message.subject}
-      action={<ActionButton label="Zurück zum Postfach" icon="arrow" variant="secondary" onPress={() => router.back()} />}>
+      action={<ActionButton label="Zurück zu den Mitteilungen" icon="arrow" variant="secondary" onPress={() => router.back()} />}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
       <Card style={styles.messageCard}>
         <View style={styles.messageHeader}>

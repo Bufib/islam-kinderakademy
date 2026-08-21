@@ -1,15 +1,15 @@
-import { Href, Stack, usePathname, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Href, Stack, usePathname, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { AppShell } from '@/components/app-shell';
-import { BrandMark } from '@/components/brand-mark';
-import { Palette } from '@/constants/design';
-import { AcademyProvider, useAcademy } from '@/context/academy-context';
-import { AcademyDataProvider } from '@/context/academy-data-context';
-import { AuthProvider, useAuth } from '@/context/auth-context';
+import { AppShell } from "@/components/app-shell";
+import { BrandMark } from "@/components/brand-mark";
+import { Palette } from "@/constants/design";
+import { AcademyProvider, useAcademy } from "@/context/academy-context";
+import { AcademyDataProvider } from "@/context/academy-data-context";
+import { AuthProvider, useAuth } from "@/context/auth-context";
 
 export default function RootLayout() {
   return (
@@ -26,29 +26,36 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isAuthenticated, isInitializing, isProfileLoading, profile } = useAuth();
+  const { isAuthenticated, isInitializing, isProfileLoading, profile } =
+    useAuth();
   const { activeRole } = useAcademy();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     const isPublicEntry =
-      pathname === '/' ||
-      pathname === '/login' ||
-      pathname === '/register' ||
-      pathname === '/passwort-vergessen';
+      pathname === "/" ||
+      pathname === "/login" ||
+      pathname === "/register" ||
+      pathname === "/passwort-vergessen";
 
-    if (!isInitializing && !isProfileLoading && isAuthenticated && isPublicEntry) {
-      router.replace('/dashboard' as Href);
+    if (
+      !isInitializing &&
+      !isProfileLoading &&
+      isAuthenticated &&
+      isPublicEntry
+    ) {
+      router.replace("/dashboard" as Href);
     }
   }, [isAuthenticated, isInitializing, isProfileLoading, pathname, router]);
 
-  const isLoadingInitialProfile = isAuthenticated && isProfileLoading && !profile;
+  const isLoadingInitialProfile =
+    isAuthenticated && isProfileLoading && !profile;
 
   if (isInitializing || isLoadingInitialProfile) {
     return (
       <View style={styles.loadingScreen}>
-        <BrandMark />
+        <BrandMark dark={true} style={{width: 200}}/>
         <ActivityIndicator color={Palette.forest} size="small" />
       </View>
     );
@@ -62,8 +69,9 @@ function RootNavigator() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: Palette.cream },
-            animation: 'fade',
-          }}>
+            animation: "fade",
+          }}
+        >
           <Stack.Screen name="index" />
 
           <Stack.Protected guard={!isAuthenticated}>
@@ -79,18 +87,18 @@ function RootNavigator() {
             <Stack.Screen name="mitteilung/[id]" />
             <Stack.Screen name="account" />
 
-            <Stack.Protected guard={activeRole === 'child'}>
+            <Stack.Protected guard={activeRole === "child"}>
               <Stack.Screen name="lernreisen" />
               <Stack.Screen name="islam-pass" />
               <Stack.Screen name="lektion/[id]" />
               <Stack.Screen name="quiz/[lessonId]" />
             </Stack.Protected>
 
-            <Stack.Protected guard={activeRole === 'parent'}>
+            <Stack.Protected guard={activeRole === "parent"}>
               <Stack.Screen name="kinder" />
             </Stack.Protected>
 
-            <Stack.Protected guard={activeRole === 'team'}>
+            <Stack.Protected guard={activeRole === "team"}>
               <Stack.Screen name="curriculum" />
               <Stack.Screen name="lektionen" />
               <Stack.Screen name="lektion-neu" />
@@ -100,7 +108,7 @@ function RootNavigator() {
               <Stack.Screen name="abzeichen" />
               <Stack.Screen name="abgaben" />
 
-              <Stack.Protected guard={profile?.role === 'admin'}>
+              <Stack.Protected guard={profile?.role === "admin"}>
                 <Stack.Screen name="konten" />
               </Stack.Protected>
             </Stack.Protected>
@@ -114,8 +122,8 @@ function RootNavigator() {
 const styles = StyleSheet.create({
   loadingScreen: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 24,
     backgroundColor: Palette.cream,
   },

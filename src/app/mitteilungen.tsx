@@ -157,7 +157,7 @@ export default function MessagesScreen() {
         <View style={styles.inboxHeader}>
           <View style={styles.inboxTitle}>
             <View style={styles.inboxIcon}><AppIcon name="messages" size={22} color={Palette.forest} /></View>
-            <AppText variant="heading">Postfach</AppText>
+            <AppText variant="heading">Mitteilungen</AppText>
           </View>
           <AppText variant="small" color={Palette.muted}>{visibleMessages.length} Mitteilungen</AppText>
         </View>

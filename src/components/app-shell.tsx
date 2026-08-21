@@ -37,7 +37,7 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: 'Übersicht', shortLabel: 'Start', icon: 'home', href: '/dashboard' },
     { label: 'Meine Kinder', shortLabel: 'Kinder', icon: 'children', href: '/kinder' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
-    { label: 'Mitteilungen', shortLabel: 'Postfach', icon: 'messages', href: '/mitteilungen' },
+    { label: 'Mitteilungen', shortLabel: 'Mitteilungen', icon: 'messages', href: '/mitteilungen' },
   ],
   team: [
     { label: 'Übersicht', shortLabel: 'Start', icon: 'dashboard', href: '/dashboard' },
@@ -45,7 +45,7 @@ const roleNavigation: Record<UserRole, NavItem[]> = {
     { label: 'Curriculum', shortLabel: 'Plan', icon: 'curriculum', href: '/curriculum' },
     { label: 'Lektionen', icon: 'lessons', href: '/lektionen' },
     { label: 'Kalender', icon: 'calendar', href: '/kalender' },
-    { label: 'Mitteilungen', shortLabel: 'Postfach', icon: 'messages', href: '/mitteilungen' },
+    { label: 'Mitteilungen', shortLabel: 'Mitteilungen', icon: 'messages', href: '/mitteilungen' },
     { label: 'Zeitgruppen', icon: 'groups', href: '/gruppen', mobile: false },
     { label: 'Medien', icon: 'media', href: '/medien', mobile: false },
     { label: 'Abzeichen', icon: 'trophy', href: '/abzeichen', mobile: false },
@@ -248,7 +248,9 @@ function Sidebar({
         style={styles.sidebarScroll}
         contentContainerStyle={styles.sidebarContent}
         showsVerticalScrollIndicator>
-        <BrandMark inverse />
+        <View style={styles.sidebarBrand}>
+          <BrandMark style={styles.sidebarBrandImage} />
+        </View>
         <View style={styles.sidebarNav}>
           <AppText variant="label" color={Palette.mintStrong} style={styles.navLabel}>
             Navigation
@@ -388,7 +390,7 @@ function TopBar({
           </Pressable>
         )}
         {compact && !onGoBack ? (
-          <BrandMark compact />
+          <BrandMark dark />
         ) : (
           <AppText variant="bodyStrong" numberOfLines={1} style={styles.topTitle}>{pageTitle}</AppText>
         )}
@@ -510,8 +512,15 @@ const styles = StyleSheet.create({
     paddingBottom: Space.lg,
   },
   sidebarNav: {
-    marginTop: 46,
+    marginTop: Space.xl,
     gap: 7,
+  },
+  sidebarBrand: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  sidebarBrandImage: {
+    width: 156,
   },
   navLabel: {
     marginLeft: 12,

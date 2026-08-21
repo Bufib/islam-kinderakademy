@@ -1,100 +1,57 @@
-import { useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
+import {
+  ImageStyle,
+  StyleProp,
+  StyleSheet,
+  useWindowDimensions,
+} from "react-native";
+
 import { Layout } from "@/constants/design";
 
 type BrandMarkProps = {
-  compact?: boolean;
-  inverse?: boolean;
+  dark?: boolean;
+  style?: StyleProp<ImageStyle>;
 };
 
-// export function BrandMark({ compact = false, inverse = false }: BrandMarkProps) {
-//   return (
-//     <View style={styles.row}>
-//       <View style={[styles.mark, inverse && styles.markInverse]}>
-//         <View style={styles.crescent} />
-//         <Text style={styles.star}>✦</Text>
-//       </View>
-//       {!compact && (
-//         <View>
-//           <Text style={[styles.name, inverse && styles.textInverse]}>Islam</Text>
-//           <Text style={[styles.name, inverse && styles.textInverse]}>Kinderakademie</Text>
-//         </View>
-//       )}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   row: {
-//     flexDirection: "row",
-//     alignItems: "center",
-//     gap: 11,
-//   },
-//   mark: {
-//     width: 42,
-//     height: 42,
-//     borderRadius: Radius.medium,
-//     backgroundColor: Palette.forest,
-//     alignItems: "center",
-//     justifyContent: "center",
-//     overflow: "hidden",
-//   },
-//   markInverse: {
-//     backgroundColor: Palette.sun,
-//   },
-//   crescent: {
-//     width: 20,
-//     height: 20,
-//     borderRadius: 10,
-//     borderWidth: 5,
-//     borderColor: Palette.white,
-//     marginLeft: -4,
-//   },
-//   star: {
-//     position: "absolute",
-//     right: 7,
-//     top: 6,
-//     color: Palette.sun,
-//     fontSize: 10,
-//     fontWeight: "800",
-//   },
-//   eyebrow: {
-//     color: Palette.muted,
-//     fontSize: 9,
-//     fontWeight: "800",
-//     letterSpacing: 2.1,
-//     lineHeight: 12,
-//   },
-//   name: {
-//     color: Palette.ink,
-//     fontSize: 17,
-//     fontWeight: "800",
-//     lineHeight: 21,
-//     letterSpacing: -0.35,
-//   },
-//   textInverse: {
-//     color: Palette.white,
-//   },
-// });
+const lightLogoAspectRatio = 1448 / 1086;
+const darkLogoAspectRatio = 1536 / 1024;
 
 export function BrandMark({
-  compact = false,
-  inverse = false,
+  dark = false,
+  style,
 }: BrandMarkProps) {
   const { width } = useWindowDimensions();
-  const desktop = width >= Layout.desktopBreakpoint;
+  const phone = width < Layout.compactBreakpoint;
+  const tablet = width < Layout.desktopBreakpoint;
 
-  return desktop ? (
+  const logoWidth = phone ? 64 : tablet ? 80 : 110;
+  
+
+  return (  
     <Image
-      style={{ width: 200, height: 150 }}
+      accessible
+      accessibilityLabel="Islam-Kinderakademie"
+      cachePolicy="memory-disk"
       contentFit="contain"
-      source={require("@/assets/images/logo.png")}
-    />
-  ) : (
-    <Image
-      style={{ width: 90, height: 90 }}
-      contentFit="contain"
-      source={require("@/assets/images/logo.png")}
+      source={
+        dark
+          ? require("@/assets/images/logo-dark.png")
+          : require("@/assets/images/logo.png")
+      }
+      style={[
+        styles.logo,
+        {
+          width: logoWidth,
+          aspectRatio: dark ? darkLogoAspectRatio : lightLogoAspectRatio,
+        },
+        style,
+      ]}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  logo: {
+    flexShrink: 0,
+  },
+});

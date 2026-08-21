@@ -45,7 +45,7 @@ export function AuthLayout({
         showsVerticalScrollIndicator={false}>
         <View style={[styles.header, compact && styles.headerCompact]}>
           <Pressable accessibilityRole="link" onPress={() => router.push('/' as Href)}>
-            <BrandMark compact={width < 360} />
+            <BrandMark dark />
           </Pressable>
           <Pressable
             accessibilityRole="link"
