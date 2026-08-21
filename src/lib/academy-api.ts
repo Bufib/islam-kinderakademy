@@ -7,6 +7,7 @@ import {
   AdminAccountSummary,
   ChildLessonProgressRow,
   LessonEditorInput,
+  LessonDocumentRow,
   MediaAssetRow,
   MediaType,
   QuizEditorInput,
@@ -157,6 +158,7 @@ export async function loadAcademyData(): Promise<AcademyData> {
     badges,
     childBadges,
     mediaAssets,
+    lessonDocuments,
     messages,
   ] = await Promise.all([
     selectTable<AcademyData['profiles'][number]>(
@@ -279,6 +281,11 @@ export async function loadAcademyData(): Promise<AcademyData> {
       false
     ),
 
+    selectTable<AcademyData['lessonDocuments'][number]>(
+      'lesson_documents',
+      'position'
+    ),
+
     selectTable<AcademyData['messages'][number]>(
       'messages',
       'created_at',
@@ -310,6 +317,7 @@ export async function loadAcademyData(): Promise<AcademyData> {
     badges,
     childBadges,
     mediaAssets,
+    lessonDocuments,
     messages,
   };
 }
@@ -398,6 +406,23 @@ export async function reviewTimeGroupRequest(
     {
       target_group_member_id: groupMemberId,
       review_decision: decision,
+    }
+  );
+
+  fail(error);
+
+  return Number(data);
+}
+
+export async function adminAssignChildTimeGroup(
+  childId: number,
+  timeGroupId: number
+) {
+  const { data, error } = await client().rpc(
+    'admin_assign_child_time_group',
+    {
+      target_child_id: childId,
+      target_group_id: timeGroupId,
     }
   );
 
@@ -1047,4 +1072,60 @@ export async function deleteMediaAsset(
     'media_assets',
     asset.id
   );
+}
+
+export async function uploadLessonPdf(
+  input: {
+    lessonId: number;
+    profileId: number;
+    fileName: string;
+    mimeType: string | null;
+    size: number | null;
+    data: ArrayBuffer;
+    position: number;
+  }
+): Promise<LessonDocumentRow> {
+  const isPdf =
+    input.mimeType?.toLowerCase() === 'application/pdf' ||
+    input.fileName.toLowerCase().endsWith('.pdf');
+
+  if (!isPdf) {
+    throw new AcademyApiError('Only PDF lesson documents are allowed');
+  }
+
+  const asset = await uploadMediaAsset({
+    profileId: input.profileId,
+    fileName: input.fileName,
+    mimeType: 'application/pdf',
+    size: input.size,
+    data: input.data,
+  });
+
+  const title = (
+    input.fileName.replace(/\.pdf$/i, '').trim() || 'PDF-Dokument'
+  ).slice(0, 160);
+
+  try {
+    return await createRecord('lesson_documents', {
+      lesson_id: input.lessonId,
+      media_asset_id: asset.id,
+      title,
+      position: input.position,
+    });
+  } catch (error) {
+    await deleteMediaAsset(asset);
+    throw error;
+  }
+}
+
+export async function deleteLessonPdf(
+  document: LessonDocumentRow,
+  asset: MediaAssetRow | null
+) {
+  if (asset) {
+    await deleteMediaAsset(asset);
+    return;
+  }
+
+  await deleteRecord('lesson_documents', document.id);
 }

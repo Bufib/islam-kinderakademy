@@ -18,6 +18,7 @@ import {
 import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
+import { useAuth } from '@/context/auth-context';
 import { createRecord, deleteRecord, updateRecord } from '@/lib/academy-api';
 import type { LiveSessionRow, LiveSessionStatus } from '@/types/database';
 import { confirmAction } from '@/utils/feedback';
@@ -44,8 +45,9 @@ type SessionForm = {
 };
 
 export default function CalendarScreen() {
-  const { activeRole } = useAcademy();
+  const { activeRole, selectedChildId } = useAcademy();
   const isTeam = activeRole === 'team';
+  const { profile } = useAuth();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
@@ -60,13 +62,83 @@ export default function CalendarScreen() {
   const stacked = width < Layout.contentStackBreakpoint;
   const cells = useMemo(() => createMonthCells(visibleMonth), [visibleMonth]);
   const monthTitle = visibleMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  const accessibleSessions = useMemo(() => {
+    if (isTeam) return data.liveSessions;
+
+    const ownChildIds = new Set(
+      data.children
+        .filter(
+          (child) =>
+            child.parent_profile_id === profile?.id &&
+            (activeRole !== 'child' || child.id === selectedChildId)
+        )
+        .map((child) => child.id)
+    );
+    const activeYearIds = new Set(
+      data.academyYears
+        .filter((year) => year.is_active)
+        .map((year) => year.id)
+    );
+    const approvedGroups = data.groupMembers
+      .filter(
+        (membership) =>
+          ownChildIds.has(membership.child_id) &&
+          membership.membership_status === 'approved'
+      )
+      .map((membership) =>
+        data.groups.find(
+          (group) =>
+            group.id === membership.group_id &&
+            activeYearIds.has(group.academy_year_id)
+        )
+      )
+      .filter((group): group is NonNullable<typeof group> => Boolean(group));
+    const approvedGroupIds = new Set(approvedGroups.map((group) => group.id));
+    const approvedAgeYearKeys = new Set(
+      approvedGroups.map(
+        (group) => `${group.age_group_id}:${group.academy_year_id}`
+      )
+    );
+    const journeyIds = new Set(
+      data.journeys
+        .filter((journey) =>
+          approvedAgeYearKeys.has(
+            `${journey.age_group_id}:${journey.academy_year_id}`
+          )
+        )
+        .map((journey) => journey.id)
+    );
+    const lessonIds = new Set(
+      data.lessons
+        .filter((lesson) => journeyIds.has(lesson.learning_journey_id))
+        .map((lesson) => lesson.id)
+    );
+
+    return data.liveSessions.filter(
+      (session) =>
+        lessonIds.has(session.lesson_id) &&
+        (session.group_id === null || approvedGroupIds.has(session.group_id))
+    );
+  }, [
+    data.academyYears,
+    data.children,
+    data.groupMembers,
+    data.groups,
+    data.journeys,
+    data.lessons,
+    data.liveSessions,
+    activeRole,
+    isTeam,
+    profile?.id,
+    selectedChildId,
+  ]);
   const visibleSessions = useMemo(
     () =>
-      data.liveSessions.filter((session) => {
+      accessibleSessions.filter((session) => {
         const date = new Date(session.starts_at);
         return date.getFullYear() === visibleMonth.getFullYear() && date.getMonth() === visibleMonth.getMonth();
       }),
-    [data.liveSessions, visibleMonth]
+    [accessibleSessions, visibleMonth]
   );
   const selectedLesson = data.lessons.find((lesson) => lesson.id === form.lessonId);
   const selectedJourney = data.journeys.find(
@@ -186,7 +258,7 @@ export default function CalendarScreen() {
           </View>
           <View style={styles.monthGrid}>
             {cells.map((cell) => {
-              const eventCount = data.liveSessions.filter((session) => localDateKey(new Date(session.starts_at)) === cell.key).length;
+              const eventCount = accessibleSessions.filter((session) => localDateKey(new Date(session.starts_at)) === cell.key).length;
               return (
                 <View key={cell.key} style={[styles.dateCell, cell.outside && styles.dateCellOutside]}>
                   <AppText variant="small" color={cell.outside ? Palette.disabled : Palette.ink} style={cell.today && styles.todayText}>{cell.day}</AppText>
@@ -208,7 +280,7 @@ export default function CalendarScreen() {
           </Card>
           <Card style={styles.agendaList}>
             <SectionHeader title="Anstehend" />
-            {isLoading && data.liveSessions.length === 0 ? (
+            {isLoading && accessibleSessions.length === 0 ? (
               <DataLoading />
             ) : visibleSessions.length === 0 ? (
               <EmptyState compact icon="clock" title="Keine Termine" description="Neue Termine erscheinen hier chronologisch." />

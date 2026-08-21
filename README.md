@@ -7,13 +7,14 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - Kinderansicht mit Übersicht, Lernreisen, Kalender und Islam-Pass
 - Elternbereich mit Kinderprofilen, Terminen und Mitteilungen
 - Team-Bereich mit Curriculum, Lektionen, Zeitgruppen und Medien
-- dreistufiger Lektionsablauf mit Einstiegstext, geplanter Live-Zoom-Vorlesung und separatem Multiple-Choice-Quiz
+- Lektionsablauf mit Einstiegstext, geschütztem PDF-Reader, geplanter Live-Zoom-Vorlesung und separatem Multiple-Choice-Quiz
 - responsive Desktop- und Mobilnavigation
 - öffentliche Werbe-Startseite sowie Registrierung und Anmeldung
 - geschützte Akademie-Routen mit Expo Router
 - Supabase-Sitzungsspeicherung für Web, iOS und Android
 - Accountbereich mit Profil-, Passwort- und Abmeldefunktionen
 - separates Admin-Dashboard mit Konten- und Rollenverwaltung
+- Admins können mit demselben Konto zwischen Administration und einem auf die eigenen Kinder begrenzten Elternbereich wechseln
 - durchsuchbare Themen- und Quizverwaltung im Admin-Dashboard zum Bearbeiten vorhandener Lektionen sowie zum Anlegen und Bearbeiten von Multiple-Choice-Fragen
 - hierarchische Lektionsverwaltung nach Akademiejahr → Lernreise → Lektion mit Filtern sowie Admin-Sammelfreigabe
 - frei verwaltbare Altersgruppen und anklickbare Akademiejahre; Lernreisen bleiben verborgen, bis ein Jahr ausgewählt wurde
@@ -21,7 +22,8 @@ Web-first Lernplattform der Islam-Kinderakademie auf Basis von Expo 57, React Na
 - zweistufige Admin-Freigabe für Lektionen und die Quizze nach beendetem Live-Termin
 - Supabase-Datenschicht für CRUD, Lernfortschritt, Abgaben und Medien
 - verpflichtende Zahlungsart und Name des verwendeten PayPal- oder Bankkontos bei der Registrierung sowie eine geschützte Admin-Zahlungsübersicht
-- mehrere Zeitgruppen pro Altersgruppe mit verpflichtender Elternanfrage und Admin-Freigabe; Lerninhalte bleiben nach Altersgruppen getrennt und sind innerhalb ihrer Zeitgruppen identisch
+- mehrere Zeitgruppen pro Altersgruppe mit verpflichtender Elternanfrage und Admin-Freigabe; Lernreisen sind sofort sichtbar, ihre Inhalte erst nach der Freigabe
+- mehrere Admin-PDF-Uploads pro Lektion, die für berechtigte Kinder direkt in der Lektion als Reader erscheinen
 
 Das gelieferte Akademiekonzept 2026/27 ist als strukturierter Lehrplan enthalten. Es werden keine künstlichen Auth-Nutzer, Kinderprofile oder Passwörter angelegt.
 
@@ -55,7 +57,7 @@ Die Migrationen gleichen `profiles` und `user_roles` ab, reparieren fehlende Pro
 - `quiz_attempts` und `quiz_attempt_answers`
 - `child_lesson_progress`, `child_step_progress` und `submissions`
 - `badges` und `child_badges`
-- `media_assets` und `messages`
+- `media_assets`, `lesson_documents` und `messages`
 - `payment_agreements` und `monthly_payments`
 
 Alle Tabellen sind durch RLS geschützt. Familien sehen nur ihre eigenen Kinder- und Fortschrittsdaten sowie vom Admin freigegebene Inhalte; Lehrkräfte und Admins können Akademie-Inhalte vorbereiten. Dateien liegen im privaten Storage-Bucket `academy-media` und werden über kurzlebige signierte URLs geöffnet.
@@ -70,11 +72,19 @@ Die Migration `20260815100000_dynamic_age_groups.sql` überführt Altersgruppen 
 
 Die Migration `20260821090000_payment_payer_names.sql` sichert den Zahlungsbereich ab. Neue Registrierungen müssen PayPal oder Banküberweisung sowie den Namen des verwendeten Zahlungskontos angeben. Der Monatsbeitrag wird serverseitig auf 14,99 Euro festgelegt; IBAN, Kontonummern und PayPal-Zugangsdaten werden nicht erfasst. Nur Admins können diese Zahlungsdaten lesen.
 
-Die Migration `20260821110000_time_group_approval.sql` trennt Altersgruppen und Zeitgruppen fachlich. Beim Kinderprofil wird zuerst die Altersgruppe und anschließend eine passende Zeitgruppe des aktiven Akademiejahres ausgewählt. Die Altersgruppe und ihre Lerninhalte gelten sofort; die Zeitgruppe bleibt bis zur Admin-Freigabe angefragt. Erst danach werden gruppenspezifische Termine, Links und Mitteilungen zugänglich.
+Die Migration `20260821110000_time_group_approval.sql` trennt Altersgruppen und Zeitgruppen fachlich. Beim Kinderprofil wird zuerst die Altersgruppe und anschließend eine passende Zeitgruppe des aktiven Akademiejahres ausgewählt. Altersgruppe und passende Lernreisen sind sofort sichtbar; die Zeitgruppe bleibt bis zur Admin-Freigabe angefragt. Erst danach werden Lektionen, Quizze, Termine, Links und gruppenspezifische Mitteilungen zugänglich.
 
 Die Migration `20260821113000_time_group_age_integrity.sql` verhindert nachträgliche Änderungen, durch die Zeitgruppe, Akademiejahr und altersgruppenspezifische Lektion eines Termins auseinanderfallen würden.
 
 Die Migration `20260821114500_time_group_request_serialization.sql` macht gleichzeitige Änderungen eines Kinderprofils und Admin-Entscheidungen konfliktfrei und verhindert neue Freigaben für inaktive Akademiejahre.
+
+Die Migration `20260821121500_approved_time_group_content_access.sql` lässt Lernreisen der gewählten Altersgruppe sofort sichtbar, sperrt aber Lektionen, Videos, Live-Inhalte, Quizze und neue Fortschrittsdaten bis zur Admin-Freigabe der Zeitgruppe.
+
+Die Migration `20260821123500_admin_assign_child_time_group.sql` erlaubt Admins, freigeschaltete Kinder direkt zwischen passenden aktiven Zeitgruppen derselben Altersgruppe zu verschieben. Die neue Zuordnung gilt sofort; alte Freigaben und offene Anfragen werden beendet.
+
+Die Migration `20260821125500_admin_parent_accounts.sql` macht die Administration zu einer zusätzlichen Rolle: Admins behalten ein normales Elternkonto für ihre eigenen Kinder und können in der App zwischen Administration und Elternbereich wechseln.
+
+Die Migration `20260821131500_lesson_pdf_documents.sql` ergänzt mehrere PDF-Dokumente pro Lektion. Nur Admins können sie einer Lektion zuordnen oder entfernen. Der private Storage-Pfad und die Metadaten sind für Familien nur lesbar, wenn auch die veröffentlichte Lektion freigegeben ist und eine passende genehmigte Zeitgruppe besteht. Die Lektionsseite zeigt die Dokumente über kurzlebige signierte URLs in einem eingebetteten Reader.
 
 3. Unter **Authentication → URL Configuration** die URLs freigeben:
 
@@ -95,7 +105,7 @@ npm run web
 
 Die öffentliche Seite liegt unter `/`. Nach der Anmeldung führt `/dashboard` abhängig von der Rolle in den Eltern-, Lehrkraft- oder Adminbereich. Neue Konten erhalten automatisch die Rolle `parent`; Admins können Konten anschließend geschützt unter `/konten` zu Lehrkräften oder weiteren Admins machen.
 
-Eine Lektion wird im Lektionseditor unter **Status & Freigabe** zunächst auf **Veröffentlicht** gesetzt und gespeichert. Danach kann ein Admin sie dort mit **Lektion jetzt freigeben** für Familien sichtbar machen. Live-Termine verwenden ein separates Kalenderfeld sowie Felder für Beginn und Ende.
+Eine Lektion wird im Lektionseditor unter **Status & Freigabe** zunächst auf **Veröffentlicht** gesetzt und gespeichert. Danach kann ein Admin sie dort mit **Lektion jetzt freigeben** für Familien sichtbar machen. PDFs werden nach dem ersten Speichern im Abschnitt **PDF-Lesematerial** hochgeladen. Live-Termine verwenden ein separates Kalenderfeld sowie Felder für Beginn und Ende.
 
 ## Auf GitHub Pages veröffentlichen
 

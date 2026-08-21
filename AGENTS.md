@@ -175,9 +175,10 @@ UI-Rollen in `src/types/academy.ts`:
 Zuordnung in `src/context/academy-context.tsx`:
 
 - `parent` → Elternbereich
-- `teacher` oder `admin` → Teambereich
+- `teacher` → Teambereich
+- `admin` → standardmäßig Administration; über den Bereichsschalter zusätzlich Elternbereich
 
-Neue Konten sind immer Elternkonten. Lehrkraft- und Adminrollen dürfen nur über eine gesicherte Adminfunktion oder direkt im Supabase-Dashboard vergeben werden. Es darf keinen frei zugänglichen Rollenwechsel im Client geben.
+Neue Konten sind immer Elternkonten. Ein Adminprofil besitzt in `user_roles` sowohl `parent` als auch `admin`; die Adminrolle ersetzt seine Elternrolle nicht. Lehrkraft- und Adminrollen dürfen nur über eine gesicherte Adminfunktion oder direkt im Supabase-Dashboard vergeben werden. Der Bereichsschalter eines Admins ändert keine Datenbankrolle und darf nicht mit einem frei zugänglichen Rollenwechsel verwechselt werden.
 
 Die Kinderansicht wird vom Elternkonto aus über ein konkretes Kinderprofil geöffnet. Es gibt bewusst keinen eigenen Kinder-Login. Beim Verlassen der Kinderansicht wechselt die App zurück in den Elternbereich. Kinder werden fachlich über `children` einem Elternprofil zugeordnet.
 
@@ -254,6 +255,10 @@ Interaktive Schritte einer Lektion. Typen:
 
 Strukturierte Schrittinhalte liegen im `jsonb`-Feld `content`. Die Tabelle bleibt für ältere interaktive Einheiten erhalten; der aktuelle Hauptablauf verwendet Einstiegstext, Live-Termin und separates Quiz.
 
+#### `lesson_documents`
+
+Ordnet einer Lektion beliebig viele geordnete PDF-Dateien aus `media_assets` zu. Nur Admins dürfen diese Zuordnungen anlegen, verändern oder entfernen. Familien dürfen Metadaten und Storage-Objekt nur lesen, wenn auch die zugehörige veröffentlichte Lektion manuell freigegeben ist und der Elternaccount über ein Kind mit genehmigter passender Zeitgruppe verfügt. Die Oberfläche zeigt die PDF über eine kurzlebige signierte URL direkt in der Lektion als Reader.
+
 ### Multiple-Choice-Quizze
 
 #### `lesson_quizzes`
@@ -291,7 +296,7 @@ Zeitgruppenwünsche und genehmigte Zuordnungen zwischen Zeitgruppen und Kindern.
 - `rejected` – durch einen Admin abgelehnt
 - `cancelled` – durch einen späteren Zeitgruppenwunsch oder Altersgruppenwechsel beendet
 
-Neue Kinder werden zusammen mit einer verpflichtenden Zeitgruppenanfrage über `save_child_with_time_group_request()` gespeichert. Die Altersgruppe und ihre Inhalte gelten sofort. Erst `review_time_group_request()` macht eine Zeitgruppe wirksam. Nur genehmigte Zuordnungen geben Zugriff auf gruppenspezifische Termine, Zoom-Links und Mitteilungen.
+Neue Kinder werden zusammen mit einer verpflichtenden Zeitgruppenanfrage über `save_child_with_time_group_request()` gespeichert. Altersgruppe und passende Lernreisen sind sofort sichtbar. Erst `review_time_group_request()` macht eine Zeitgruppe wirksam. Nur genehmigte Zuordnungen geben Zugriff auf Lektionen, Quizze, gruppenspezifische Termine, Zoom-Links und Mitteilungen.
 
 ### Live-Unterricht
 
@@ -345,7 +350,7 @@ Einem Kind verliehene Abzeichen.
 
 #### `media_assets`
 
-Metadaten für Bilder, Audio, Video oder Dokumente. Die eigentlichen Dateien liegen im privaten Storage-Bucket `academy-media`.
+Metadaten für Bilder, Audio, Video oder Dokumente. Die eigentlichen Dateien liegen im privaten Storage-Bucket `academy-media`. Allgemeine Medien bleiben für das Akademieteam sichtbar. An `lesson_documents` gebundene PDFs dürfen nur von Admins verändert oder gelöscht werden; berechtigte Familien erhalten ausschließlich Lesezugriff über die Freigaberegeln der Lektion.
 
 #### `messages`
 
@@ -369,6 +374,7 @@ academy_years
   └── learning_journeys
         └── lessons
               ├── lesson_steps
+              ├── lesson_documents ── media_assets
               ├── live_sessions
               ├── lesson_quizzes
               │     ├── quiz_questions ── quiz_options
@@ -392,7 +398,7 @@ Grundprinzipien:
 
 - Anonyme Besucher haben keinen Zugriff auf Akademietabellen.
 - Eltern sehen und verändern nur ihre eigenen Kinderprofile und deren Fortschritt beziehungsweise Abgaben.
-- Eltern sehen nur aktive und veröffentlichte Akademie-Inhalte.
+- Eltern sehen sofort die aktiven, veröffentlichten Lernreisen der Altersgruppe; deren Lektionen und Quizze erst bei mindestens einer genehmigten Zeitgruppe des Kindes im passenden aktiven Akademiejahr.
 - Eltern sehen Zeitgruppentermine und Mitteilungen nur für freigeschaltete Zeitgruppen.
 - Lehrkräfte und Admins gelten als Akademieteam und können fachliche Inhalte verwalten.
 - Nur Admins dürfen Rollen verändern.
@@ -433,6 +439,10 @@ Aktueller relevanter Stand:
 - `20260821110000_time_group_approval.sql` – mehrere Zeitgruppen je Altersgruppe, verpflichtende Zeitgruppenanfragen, Admin-Freigabe und altersgruppenkonsistente Termine
 - `20260821113000_time_group_age_integrity.sql` – schützt Altersgruppe und Akademiejahr verwendeter Zeitgruppen, Lernreisen und Termine vor widersprüchlichen Änderungen
 - `20260821114500_time_group_request_serialization.sql` – serialisiert parallele Elternänderungen und Admin-Entscheidungen pro Kind und sperrt Freigaben in inaktiven Akademiejahren
+- `20260821121500_approved_time_group_content_access.sql` – Lernreisen bleiben sichtbar, während Lektionen, Quizze, Live-Inhalte und neue Fortschrittsdaten bis zur genehmigten Zeitgruppe gesperrt sind
+- `20260821123500_admin_assign_child_time_group.sql` – Admins können freigeschaltete Kinder direkt und atomar zwischen passenden aktiven Zeitgruppen verschieben
+- `20260821125500_admin_parent_accounts.sql` – Adminprofile behalten zusätzlich die Elternrolle und können im getrennten Elternbereich ausschließlich ihre eigenen Kinder verwalten
+- `20260821131500_lesson_pdf_documents.sql` – mehrere geschützte PDF-Dokumente pro Lektion, Adminverwaltung und eingebetteter Reader für berechtigte Familien
 
 Alle genannten Migrationen sind auf dem aktuell verknüpften Supabase-Projekt ausgeführt. Remote-Schema-Lint war danach fehlerfrei.
 
@@ -457,7 +467,7 @@ Bereits funktional umgesetzt:
 - mehrere Zeitgruppen teilen die Inhalte ihrer Altersgruppe, während Inhalte verschiedener Altersgruppen getrennt bleiben
 - Admin-CRUD für frei verwaltbare Altersgruppen im Curriculum
 - anklickbare Akademiejahre im Curriculum; beim Einstieg ist kein Jahr vorausgewählt und Lernreisen bleiben verborgen, bis ein Jahr bewusst geöffnet wurde. Danach werden sie nach geöffnetem Jahr und gewählter Altersgruppe gefiltert und direkt dort bearbeitet
-- dreistufiger Lektionseditor für Einstiegstext, geplanten Live-Zoom-Termin und separates Multiple-Choice-Quiz
+- Lektionseditor für Einstiegstext, mehrere Admin-PDFs, geplanten Live-Zoom-Termin und separates Multiple-Choice-Quiz
 - kalendergestützte Datumswahl und getrennte Start-/Endzeit für Zoom-Termine auf Web, iOS und Android
 - klar sichtbare Admin-Freigabe direkt im Lektionseditor und in der Lektionsübersicht
 - Lektionsübersicht bildet die verpflichtende Hierarchie Akademiejahr → Lernreise → Lektion sichtbar ab und sortiert innerhalb der Lernreise nach `lessons.position`; filterbar nach Akademiejahr, Altersgruppe, Lernreise, Status und Suchtext
@@ -473,6 +483,7 @@ Bereits funktional umgesetzt:
 - Abzeichenverwaltung und persönliche Verleihung
 - Abgabenübersicht für das Akademieteam
 - private Medien-Uploads, signierte Download-Links und Löschung in Supabase Storage
+- geschützte PDF-Reader innerhalb freigegebener Lektionen mit mehreren auswählbaren Dokumenten
 - datengetriebene Eltern-, Kinder- und Team-Dashboards
 - separates Admin-Dashboard mit Systemkennzahlen und Admin-Schnellzugriffen
 - durchsuchbare Themen- und Quizverwaltung im Admin-Dashboard mit direktem Einstieg in die Lektionsbearbeitung sowie das Anlegen und Bearbeiten von Multiple-Choice-Fragen

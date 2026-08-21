@@ -20,6 +20,7 @@ import { Layout, Palette, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
 import { formatDateTime } from '@/utils/format';
+import { findActiveTimeGroupForChild } from '@/utils/time-group-access';
 
 export function ChildDashboard() {
   const router = useRouter();
@@ -53,6 +54,9 @@ export function ChildDashboard() {
   }
 
   const activeYearIds = data.academyYears.filter((year) => year.is_active).map((year) => year.id);
+  const approvedTimeGroup = findActiveTimeGroupForChild(data, child.id, 'approved');
+  const pendingTimeGroup = findActiveTimeGroupForChild(data, child.id, 'pending');
+  const contentUnlocked = Boolean(approvedTimeGroup);
   const journeys = data.journeys
     .filter(
       (journey) =>
@@ -62,13 +66,15 @@ export function ChildDashboard() {
     )
     .sort((a, b) => a.position - b.position);
   const journeyIds = journeys.map((journey) => journey.id);
-  const lessons = data.lessons
-    .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
-    .sort((a, b) => {
-      const journeyA = journeys.find((journey) => journey.id === a.learning_journey_id)?.position ?? 0;
-      const journeyB = journeys.find((journey) => journey.id === b.learning_journey_id)?.position ?? 0;
-      return journeyA - journeyB || a.position - b.position;
-    });
+  const lessons = contentUnlocked
+    ? data.lessons
+        .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
+        .sort((a, b) => {
+          const journeyA = journeys.find((journey) => journey.id === a.learning_journey_id)?.position ?? 0;
+          const journeyB = journeys.find((journey) => journey.id === b.learning_journey_id)?.position ?? 0;
+          return journeyA - journeyB || a.position - b.position;
+        })
+    : [];
   const progressRows = data.lessonProgress.filter((row) => row.child_id === child.id);
   const completedLessons = progressRows.filter((row) => row.status === 'completed').length;
   const nextLesson =
@@ -87,13 +93,7 @@ export function ChildDashboard() {
         (attempt) => attempt.child_id === child.id && attempt.quiz_id === nextQuiz.id
       )
     : null;
-  const childGroupIds = data.groupMembers
-    .filter(
-      (member) =>
-        member.child_id === child.id &&
-        member.membership_status === 'approved'
-    )
-    .map((member) => member.group_id);
+  const childGroupIds = approvedTimeGroup ? [approvedTimeGroup.id] : [];
   const nextSession = data.liveSessions
     .filter(
       (session) =>
@@ -106,23 +106,49 @@ export function ChildDashboard() {
   return (
     <PageScaffold eyebrow="Mein Bereich" title={`Salam, ${child.display_name}!`}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
+      {!contentUnlocked && (
+        <Card tone="sun" style={styles.accessCard}>
+          <View style={styles.accessIcon}>
+            <AppIcon name="lock" size={23} color={Palette.forest} />
+          </View>
+          <View style={styles.accessCopy}>
+            <AppText variant="heading">Freigabe der Zeitgruppe ausstehend</AppText>
+            <AppText color={Palette.inkSoft}>
+              {pendingTimeGroup
+                ? `${pendingTimeGroup.name} · ${pendingTimeGroup.schedule_label} wurde angefragt.`
+                : 'Bitte wähle im Elternbereich eine Zeitgruppe aus.'}{' '}
+              Die Lernreisen sind schon sichtbar, ihre Lektionen öffnen sich aber erst nach der Admin-Freigabe.
+            </AppText>
+          </View>
+          <ActionButton
+            label="Lernreisen ansehen"
+            icon="journeys"
+            variant="secondary"
+            onPress={() => router.push('/lernreisen')}
+          />
+        </Card>
+      )}
       <View style={[styles.heroGrid, stacked && styles.column]}>
         <Card tone="dark" style={[styles.heroCard, stacked && styles.fullWidth, compact && styles.heroCardCompact]}>
           <View style={styles.heroCopy}>
             <Pill tone="sun" icon="journeys">Deine Lernwoche</Pill>
             <View style={styles.heroText}>
               <AppText variant={compact ? 'title' : 'display'} color={Palette.white}>
-                {nextLesson?.title ?? 'Deine nächste Entdeckung wartet hier.'}
+                {contentUnlocked
+                  ? nextLesson?.title ?? 'Deine nächste Entdeckung wartet hier.'
+                  : `${journeys.length} Lernreisen warten auf dich`}
               </AppText>
               <AppText color="#CDE0D7" style={styles.heroDescription}>
-                {nextLesson?.description ?? 'Sobald eine Lektion veröffentlicht ist, kannst du hier starten.'}
+                {contentUnlocked
+                  ? nextLesson?.description ?? 'Sobald eine Lektion veröffentlicht ist, kannst du hier starten.'
+                  : 'Du kannst die Lernreisen bereits ansehen. Die Inhalte werden nach der Zeitgruppenfreigabe geöffnet.'}
               </AppText>
             </View>
             <View style={[styles.heroActions, compact && styles.actionsColumn]}>
               <ActionButton
-                label={nextProgress > 0 ? 'Weiterlernen' : 'Lektion starten'}
-                icon={nextLesson ? 'play' : 'lock'}
-                disabled={!nextLesson}
+                label={!contentUnlocked ? 'Inhalte gesperrt' : nextProgress > 0 ? 'Weiterlernen' : 'Lektion starten'}
+                icon={contentUnlocked && nextLesson ? 'play' : 'lock'}
+                disabled={!contentUnlocked || !nextLesson}
                 onPress={() => nextLesson && router.push(`/lektion/${nextLesson.id}`)}
                 style={styles.heroButton}
               />
@@ -143,12 +169,16 @@ export function ChildDashboard() {
             <View style={styles.roundIconMint}>
               <AppIcon name="check" size={23} color={Palette.forest} />
             </View>
-            <Pill>3 Phasen</Pill>
+            <Pill tone={contentUnlocked ? 'neutral' : 'sun'}>{contentUnlocked ? '3 Phasen' : 'Gesperrt'}</Pill>
           </View>
           <View style={styles.weekCopy}>
             <AppText variant="heading">Mein Wochenweg</AppText>
             <AppText color={Palette.inkSoft}>
-              {nextLesson ? `${nextProgress}% dieser Lektion geschafft.` : 'Noch keine Lektion veröffentlicht.'}
+              {contentUnlocked
+                ? nextLesson
+                  ? `${nextProgress}% dieser Lektion geschafft.`
+                  : 'Noch keine Lektion veröffentlicht.'
+                : 'Die Inhalte öffnen sich nach der Admin-Freigabe.'}
             </AppText>
           </View>
           <ProgressBar value={nextProgress} />
@@ -241,6 +271,9 @@ function JourneyOrnament() {
 }
 
 const styles = StyleSheet.create({
+  accessCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
+  accessIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: Palette.sunSoft, alignItems: 'center', justifyContent: 'center' },
+  accessCopy: { flex: 1, flexBasis: 280, minWidth: 0, gap: Space.xs },
   heroGrid: { width: '100%', minWidth: 0, flexDirection: 'row', gap: Space.lg, alignItems: 'stretch' },
   column: { flexDirection: 'column' },
   fullWidth: { width: '100%', minWidth: 0, maxWidth: '100%', flexBasis: 'auto' },

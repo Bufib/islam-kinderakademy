@@ -24,6 +24,7 @@ import { Palette, Radius, Space } from "@/constants/design";
 import { useAcademyData } from "@/context/academy-data-context";
 import { useAuth } from "@/context/auth-context";
 import {
+  adminAssignChildTimeGroup,
   createRecord,
   deleteRecord,
   reviewTimeGroupRequest,
@@ -58,7 +59,12 @@ export default function GroupsScreen() {
   const [form, setForm] = useState<GroupForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [reviewingId, setReviewingId] = useState<number | null>(null);
+  const [movingMembership, setMovingMembership] =
+    useState<GroupMemberRow | null>(null);
+  const [moveGroupId, setMoveGroupId] = useState<number | null>(null);
+  const [moving, setMoving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const isAdmin = profile?.role === "admin";
 
@@ -160,6 +166,50 @@ export default function GroupsScreen() {
     }
   }
 
+  function openMoveDialog(membership: GroupMemberRow) {
+    setMovingMembership(membership);
+    setMoveGroupId(membership.group_id);
+    setMoveError(null);
+  }
+
+  async function moveChild() {
+    const child = data.children.find(
+      (entry) => entry.id === movingMembership?.child_id,
+    );
+    const targetGroup = data.groups.find(
+      (entry) => entry.id === moveGroupId,
+    );
+    const targetYear = data.academyYears.find(
+      (entry) => entry.id === targetGroup?.academy_year_id,
+    );
+
+    if (
+      !child ||
+      !targetGroup ||
+      !targetYear?.is_active ||
+      targetGroup.age_group_id !== child.age_group_id
+    ) {
+      setMoveError(
+        "Wähle eine aktive Zeitgruppe aus der Altersgruppe des Kindes.",
+      );
+      return;
+    }
+
+    setMoving(true);
+    setMoveError(null);
+
+    try {
+      await execute(() =>
+        adminAssignChildTimeGroup(child.id, targetGroup.id),
+      );
+      setMovingMembership(null);
+    } catch (reason) {
+      setMoveError(apiErrorMessage(reason));
+    } finally {
+      setMoving(false);
+    }
+  }
+
   async function remove(group: GroupRow) {
     const confirmed = await confirmAction(
       "Zeitgruppe löschen?",
@@ -180,6 +230,16 @@ export default function GroupsScreen() {
   const scheduledSessions = data.liveSessions.filter(
     (session) => session.status === "scheduled",
   ).length;
+  const movingChild = data.children.find(
+    (entry) => entry.id === movingMembership?.child_id,
+  );
+  const moveTimeGroups = data.groups.filter(
+    (group) =>
+      group.age_group_id === movingChild?.age_group_id &&
+      data.academyYears.some(
+        (year) => year.id === group.academy_year_id && year.is_active,
+      ),
+  );
 
   return (
     <PageScaffold
@@ -356,14 +416,6 @@ export default function GroupsScreen() {
               const ageGroup = data.ageGroups.find(
                 (entry) => entry.id === group.age_group_id,
               );
-              const memberNames = members
-                .map(
-                  (member) =>
-                    data.children.find((child) => child.id === member.child_id)
-                      ?.display_name,
-                )
-                .filter((name): name is string => Boolean(name));
-
               return (
                 <View key={group.id} style={styles.groupRow}>
                   <View style={styles.groupIcon}>
@@ -392,10 +444,43 @@ export default function GroupsScreen() {
                     <AppText variant="small" color={Palette.muted}>
                       Lehrkraft: {teacher?.display_name ?? "Noch nicht zugeordnet"}
                     </AppText>
-                    {memberNames.length > 0 && (
-                      <AppText variant="small" color={Palette.muted}>
-                        Kinder: {memberNames.join(", ")}
-                      </AppText>
+                    {members.length > 0 && (
+                      <View style={styles.memberList}>
+                        <AppText variant="small" color={Palette.muted}>
+                          Freigeschaltete Kinder
+                        </AppText>
+                        {members.map((membership) => {
+                          const child = data.children.find(
+                            (entry) => entry.id === membership.child_id,
+                          );
+
+                          return (
+                            <View
+                              key={membership.id}
+                              style={styles.memberRow}
+                            >
+                              <View style={styles.memberName}>
+                                <AppIcon
+                                  name="children"
+                                  size={16}
+                                  color={Palette.forest}
+                                />
+                                <AppText variant="small" color={Palette.inkSoft}>
+                                  {child?.display_name ?? "Unbekanntes Kind"}
+                                </AppText>
+                              </View>
+                              {isAdmin && (
+                                <ActionButton
+                                  label="Zeitgruppe ändern"
+                                  compact
+                                  variant="quiet"
+                                  onPress={() => openMoveDialog(membership)}
+                                />
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
                     )}
                   </View>
                   <RowActions
@@ -470,6 +555,36 @@ export default function GroupsScreen() {
           }))}
         />
       </FormDialog>
+
+      <FormDialog
+        visible={Boolean(movingMembership)}
+        title="Zeitgruppe des Kindes ändern"
+        description={
+          movingChild
+            ? `${movingChild.display_name} wird direkt in die ausgewählte Zeitgruppe verschoben. Eine neue Elternanfrage ist nicht erforderlich.`
+            : undefined
+        }
+        saving={moving}
+        onClose={() => setMovingMembership(null)}
+        onSave={() => void moveChild()}
+      >
+        {moveError && <ErrorBanner message={moveError} />}
+        <ChoiceChips
+          label="Neue Zeitgruppe"
+          value={moveGroupId}
+          onChange={setMoveGroupId}
+          options={moveTimeGroups.map((group) => ({
+            value: group.id,
+            label: `${group.name} · ${group.schedule_label}`,
+          }))}
+        />
+        {moveTimeGroups.length < 2 && (
+          <AppText variant="small" color={Palette.muted}>
+            Für diese Altersgruppe ist aktuell keine weitere aktive Zeitgruppe
+            eingerichtet.
+          </AppText>
+        )}
+      </FormDialog>
     </PageScaffold>
   );
 }
@@ -540,6 +655,26 @@ const styles = StyleSheet.create({
     flexBasis: 240,
     minWidth: 0,
     gap: 4,
+  },
+  memberList: {
+    gap: Space.xs,
+    marginTop: Space.sm,
+  },
+  memberRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Space.sm,
+    paddingVertical: Space.xs,
+    paddingHorizontal: Space.sm,
+    borderRadius: Radius.small,
+    backgroundColor: Palette.mint,
+  },
+  memberName: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Space.xs,
   },
   titleLine: {
     flexDirection: "row",

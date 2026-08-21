@@ -22,7 +22,7 @@ import { apiErrorMessage } from "@/utils/format";
 const roleLabels: Record<AccountRole, string> = {
   parent: "Elternkonto",
   teacher: "Lehrkraft",
-  admin: "Administration",
+  admin: "Administration & Elternkonto",
 };
 
 type DeleteAccountResponse = {

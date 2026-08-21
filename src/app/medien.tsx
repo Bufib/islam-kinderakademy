@@ -72,7 +72,15 @@ export default function MediaScreen() {
   }
 
   async function removeAsset(asset: MediaAssetRow) {
-    const confirmed = await confirmAction('Datei löschen?', `„${asset.file_name}“ wird aus Storage und Mediathek entfernt.`);
+    const lessonDocument = data.lessonDocuments.find(
+      (document) => document.media_asset_id === asset.id,
+    );
+    const confirmed = await confirmAction(
+      'Datei löschen?',
+      lessonDocument
+        ? `„${asset.file_name}“ wird aus der zugehörigen Lektion und aus dem privaten Speicher entfernt.`
+        : `„${asset.file_name}“ wird aus Storage und Mediathek entfernt.`,
+    );
     if (!confirmed) return;
     try {
       await execute(() => deleteMediaAsset(asset));
@@ -119,22 +127,34 @@ export default function MediaScreen() {
           <EmptyState icon="media" title="Die Mediathek ist leer" description="Hochgeladene Dateien erscheinen hier und können geschützt geöffnet werden." />
         ) : (
           <View style={styles.assetGrid}>
-            {assets.map((asset) => (
-              <View key={asset.id} style={styles.assetCard}>
-                <View style={styles.assetIcon}>
-                  <AppIcon name={asset.media_type === 'video' ? 'video' : asset.media_type === 'image' ? 'media' : 'lessons'} size={25} color={Palette.forest} />
+            {assets.map((asset) => {
+              const isLessonPdf = data.lessonDocuments.some(
+                (document) => document.media_asset_id === asset.id,
+              );
+
+              return (
+                <View key={asset.id} style={styles.assetCard}>
+                  <View style={styles.assetIcon}>
+                    <AppIcon name={asset.media_type === 'video' ? 'video' : asset.media_type === 'image' ? 'media' : 'lessons'} size={25} color={Palette.forest} />
+                  </View>
+                  <View style={styles.assetCopy}>
+                    <AppText variant="bodyStrong" numberOfLines={2}>{asset.file_name}</AppText>
+                    <AppText variant="small" color={Palette.muted}>{formatBytes(asset.size_bytes)} · {formatDate(asset.created_at)}</AppText>
+                    <Pill tone="sky">
+                      {isLessonPdf ? 'Lektions-PDF' : asset.media_type}
+                    </Pill>
+                  </View>
+                  <RowActions
+                    extra={<ActionButton label="Öffnen" icon="external" compact variant="secondary" onPress={() => void openAsset(asset)} />}
+                    onDelete={
+                      !isLessonPdf || profile?.role === 'admin'
+                        ? () => void removeAsset(asset)
+                        : undefined
+                    }
+                  />
                 </View>
-                <View style={styles.assetCopy}>
-                  <AppText variant="bodyStrong" numberOfLines={2}>{asset.file_name}</AppText>
-                  <AppText variant="small" color={Palette.muted}>{formatBytes(asset.size_bytes)} · {formatDate(asset.created_at)}</AppText>
-                  <Pill tone="sky">{asset.media_type}</Pill>
-                </View>
-                <RowActions
-                  extra={<ActionButton label="Öffnen" icon="external" compact variant="secondary" onPress={() => void openAsset(asset)} />}
-                  onDelete={() => void removeAsset(asset)}
-                />
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </Card>

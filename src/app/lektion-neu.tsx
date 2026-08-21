@@ -1,3 +1,5 @@
+import * as DocumentPicker from 'expo-document-picker';
+import * as Linking from 'expo-linking';
 import { Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -11,6 +13,7 @@ import {
   ChoiceChips,
   DataLoading,
   ErrorBanner,
+  RowActions,
 } from '@/components/ui/data-ui';
 import {
   DateField,
@@ -34,11 +37,15 @@ import { useAcademyData } from '@/context/academy-data-context';
 import { useAuth } from '@/context/auth-context';
 import {
   deleteRecord,
+  deleteLessonPdf,
+  getMediaSignedUrl,
   saveLesson,
   setLessonRelease,
+  uploadLessonPdf,
 } from '@/lib/academy-api';
 import {
   AcademyData,
+  LessonDocumentRow,
   LessonRow,
   LessonStatus,
   LiveSessionRow,
@@ -47,6 +54,7 @@ import { confirmAction } from '@/utils/feedback';
 import {
   apiErrorMessage,
   combineLocalDateTime,
+  formatBytes,
   toLocalDateInput,
   toLocalTimeInput,
 } from '@/utils/format';
@@ -380,6 +388,16 @@ function LessonEditor({
     string | null
   >(null);
 
+  const [
+    uploadingPdf,
+    setUploadingPdf,
+  ] = useState(false);
+
+  const [
+    deletingPdfId,
+    setDeletingPdfId,
+  ] = useState<number | null>(null);
+
   const effectiveJourneyId =
     journeyId ??
     data.journeys[0]?.id ??
@@ -392,6 +410,11 @@ function LessonEditor({
       group.age_group_id === effectiveJourney?.age_group_id &&
       group.academy_year_id === effectiveJourney?.academy_year_id,
   );
+  const lessonDocuments = initialLesson
+    ? data.lessonDocuments
+        .filter((document) => document.lesson_id === initialLesson.id)
+        .sort((a, b) => a.position - b.position || a.id - b.id)
+    : [];
 
   /*
    * ============================================================
@@ -668,6 +691,119 @@ function LessonEditor({
     }
   }
 
+  async function selectAndUploadPdf() {
+    if (!initialLesson || !isAdmin || !profile?.id) {
+      setFormError(
+        'Speichere die Lektion zuerst und öffne sie mit einem Admin-Konto.',
+      );
+      return;
+    }
+
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+    if (result.canceled) {
+      return;
+    }
+
+    const pickedFile = result.assets[0];
+    const isPdf =
+      pickedFile.mimeType?.toLowerCase() === 'application/pdf' ||
+      pickedFile.name.toLowerCase().endsWith('.pdf');
+
+    if (!isPdf) {
+      setFormError('Bitte wähle eine PDF-Datei aus.');
+      return;
+    }
+
+    if (pickedFile.size && pickedFile.size > 50 * 1024 * 1024) {
+      setFormError('Die PDF-Datei darf höchstens 50 MB groß sein.');
+      return;
+    }
+
+    setUploadingPdf(true);
+    setFormError(null);
+
+    try {
+      const fileData = pickedFile.file
+        ? await pickedFile.file.arrayBuffer()
+        : await fetch(pickedFile.uri).then((response) => response.arrayBuffer());
+
+      const nextPosition = lessonDocuments.reduce(
+        (highest, document) => Math.max(highest, document.position + 1),
+        0,
+      );
+
+      await execute(() =>
+        uploadLessonPdf({
+          lessonId: initialLesson.id,
+          profileId: profile.id!,
+          fileName: pickedFile.name,
+          mimeType: pickedFile.mimeType ?? 'application/pdf',
+          size: pickedFile.size ?? null,
+          data: fileData,
+          position: nextPosition,
+        }),
+      );
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setUploadingPdf(false);
+    }
+  }
+
+  async function openLessonPdf(document: LessonDocumentRow) {
+    const asset = data.mediaAssets.find(
+      (entry) => entry.id === document.media_asset_id,
+    );
+
+    if (!asset) {
+      setFormError('Die PDF-Datei wurde nicht gefunden.');
+      return;
+    }
+
+    try {
+      const url = await getMediaSignedUrl(asset);
+      if (url) {
+        await Linking.openURL(url);
+      }
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    }
+  }
+
+  async function removeLessonPdf(document: LessonDocumentRow) {
+    if (!isAdmin || deletingPdfId !== null || uploadingPdf) {
+      return;
+    }
+
+    const asset = data.mediaAssets.find(
+      (entry) => entry.id === document.media_asset_id,
+    ) ?? null;
+    const confirmed = await confirmAction(
+      'PDF löschen?',
+      `„${document.title}“ wird aus der Lektion und aus dem privaten Speicher entfernt.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingPdfId(document.id);
+    setFormError(null);
+
+    try {
+      await execute(() => deleteLessonPdf(document, asset));
+    } catch (reason) {
+      setFormError(apiErrorMessage(reason));
+    } finally {
+      setDeletingPdfId(null);
+    }
+  }
+
   /*
    * ============================================================
    * RENDER
@@ -682,7 +818,7 @@ function LessonEditor({
           ? 'Lektion bearbeiten'
           : 'Neue Lektion'
       }
-      description="Eine Lektion führt vom Einstiegstext über den geplanten Live-Unterricht zur Aufzeichnung und anschließend zum Multiple-Choice-Quiz."
+      description="Eine Lektion führt vom Einstiegstext und optionalem PDF-Lesematerial über den geplanten Live-Unterricht zur Aufzeichnung und anschließend zum Multiple-Choice-Quiz."
       action={
         <View
           style={[
@@ -838,7 +974,7 @@ function LessonEditor({
 
           <SectionHeader
             title="Lektionsablauf"
-            description="Drei aufeinanderfolgende Phasen"
+            description="Einstieg, Lesematerial, Live-Unterricht und Quiz"
           />
 
           {/* ================================================= */}
@@ -928,6 +1064,93 @@ function LessonEditor({
                 setIntroText
               }
             />
+          </Card>
+
+          {/* ================================================= */}
+          {/* PDF-LESEMATERIAL */}
+          {/* ================================================= */}
+
+          <Card style={styles.pdfCard}>
+            <View style={styles.mediaIcon}>
+              <AppIcon
+                name="lessons"
+                size={25}
+                color={Palette.forest}
+              />
+            </View>
+
+            <View style={styles.mediaHeading}>
+              <AppText variant="heading">PDF-Lesematerial</AppText>
+              <AppText variant="small" color={Palette.inkSoft}>
+                Mehrere PDFs können direkt in der freigegebenen Lektion als
+                Reader angezeigt werden.
+              </AppText>
+            </View>
+
+            {!initialLesson ? (
+              <AppText variant="small" color={Palette.muted}>
+                Speichere zuerst die Lektion. Danach kannst du PDFs hochladen.
+              </AppText>
+            ) : (
+              <>
+                {lessonDocuments.length === 0 ? (
+                  <Pill tone="neutral">Noch keine PDF hinterlegt</Pill>
+                ) : (
+                  <View style={styles.pdfList}>
+                    {lessonDocuments.map((document) => {
+                      const asset = data.mediaAssets.find(
+                        (entry) => entry.id === document.media_asset_id,
+                      );
+
+                      return (
+                        <View key={document.id} style={styles.pdfRow}>
+                          <View style={styles.pdfCopy}>
+                            <AppText variant="bodyStrong" numberOfLines={2}>
+                              {document.title}
+                            </AppText>
+                            <AppText variant="small" color={Palette.muted}>
+                              {formatBytes(asset?.size_bytes ?? null)}
+                            </AppText>
+                          </View>
+
+                          <RowActions
+                            extra={
+                              <ActionButton
+                                label="Öffnen"
+                                icon="external"
+                                compact
+                                variant="secondary"
+                                onPress={() => void openLessonPdf(document)}
+                              />
+                            }
+                            onDelete={
+                              isAdmin
+                                ? () => void removeLessonPdf(document)
+                                : undefined
+                            }
+                          />
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {isAdmin ? (
+                  <ActionButton
+                    label={
+                      uploadingPdf ? 'PDF wird hochgeladen …' : 'PDF hochladen'
+                    }
+                    icon="add"
+                    disabled={uploadingPdf || deletingPdfId !== null}
+                    onPress={() => void selectAndUploadPdf()}
+                  />
+                ) : (
+                  <AppText variant="small" color={Palette.muted}>
+                    Nur Admins können Lektions-PDFs hochladen und entfernen.
+                  </AppText>
+                )}
+              </>
+            )}
           </Card>
 
           {/* ================================================= */}
@@ -1692,6 +1915,31 @@ const styles =
 
     mediaHeading: {
       gap: 4,
+    },
+
+    pdfCard: {
+      gap: Space.md,
+    },
+
+    pdfList: {
+      gap: Space.sm,
+    },
+
+    pdfRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: Space.sm,
+      borderWidth: 1,
+      borderColor: Palette.line,
+      borderRadius: 14,
+      padding: Space.sm,
+    },
+
+    pdfCopy: {
+      flex: 1,
+      minWidth: 140,
+      gap: 2,
     },
 
     replayCard: {

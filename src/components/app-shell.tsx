@@ -112,7 +112,13 @@ export function AppShell({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { activeRole, exitChildArea } = useAcademy();
+  const {
+    activeRole,
+    canSwitchAccountArea,
+    enterParentArea,
+    enterTeamArea,
+    exitChildArea,
+  } = useAcademy();
   const { profile } = useAuth();
   const router = useRouter();
   const desktop = width >= Layout.desktopBreakpoint;
@@ -123,6 +129,25 @@ export function AppShell({ children }: PropsWithChildren) {
     () => roleNavigation[activeRole].filter((item) => !item.adminOnly || isAdmin),
     [activeRole, isAdmin]
   );
+  const canShowAccountAreaSwitch =
+    canSwitchAccountArea && activeRole !== 'child';
+  const accountAreaSwitch = canShowAccountAreaSwitch
+    ? {
+        label:
+          activeRole === 'team'
+            ? 'Zum Elternbereich'
+            : 'Zur Administration',
+        icon: (activeRole === 'team' ? 'children' : 'dashboard') as AppIconName,
+        onPress: () => {
+          if (activeRole === 'team') {
+            enterParentArea();
+          } else {
+            enterTeamArea();
+          }
+          router.replace('/dashboard' as Href);
+        },
+      }
+    : undefined;
 
   if (publicPaths.has(pathname)) {
     return (
@@ -141,6 +166,7 @@ export function AppShell({ children }: PropsWithChildren) {
             navItems={navItems}
             pathname={pathname}
             accountLabel={activeRole === 'child' ? 'Zum Elternbereich' : 'Mein Account'}
+            accountAreaSwitch={accountAreaSwitch}
             onOpenAccount={() => {
               if (activeRole === 'child') {
                 exitChildArea();
@@ -179,6 +205,7 @@ export function AppShell({ children }: PropsWithChildren) {
               }
             }}
             onOpenNotifications={() => router.push('/mitteilungen' as Href)}
+            accountAreaSwitch={accountAreaSwitch}
           />
           <View style={styles.routeContent}>{children}</View>
         </View>
@@ -201,12 +228,18 @@ function Sidebar({
   navItems,
   pathname,
   accountLabel,
+  accountAreaSwitch,
   onOpenAccount,
 }: {
   meta: RoleMeta;
   navItems: NavItem[];
   pathname: string;
   accountLabel: string;
+  accountAreaSwitch?: {
+    label: string;
+    icon: AppIconName;
+    onPress: () => void;
+  };
   onOpenAccount: () => void;
 }) {
   return (
@@ -226,6 +259,32 @@ function Sidebar({
         </View>
 
         <View style={styles.sidebarBottom}>
+          {accountAreaSwitch && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={accountAreaSwitch.onPress}
+              style={({ pressed }) => [
+                styles.accountAreaSwitch,
+                pressed && styles.pressed,
+              ]}>
+              <View style={styles.accountAreaSwitchIcon}>
+                <AppIcon
+                  name={accountAreaSwitch.icon}
+                  size={18}
+                  color={Palette.ink}
+                />
+              </View>
+              <View style={styles.prototypeCopy}>
+                <AppText variant="bodyStrong" color={Palette.white}>
+                  {accountAreaSwitch.label}
+                </AppText>
+                <AppText variant="small" color={Palette.mintStrong}>
+                  Dasselbe Konto, eigener Familienbereich
+                </AppText>
+              </View>
+              <AppIcon name="arrow" size={18} color={Palette.mintStrong} />
+            </Pressable>
+          )}
           <View style={styles.prototypeNote}>
             <View style={styles.prototypeIcon}>
               <AppIcon name="lock" size={17} color={Palette.sun} />
@@ -300,6 +359,7 @@ function TopBar({
   onGoBack,
   onOpenAccount,
   onOpenNotifications,
+  accountAreaSwitch,
 }: {
   compact: boolean;
   pageTitle: string;
@@ -307,6 +367,11 @@ function TopBar({
   onGoBack?: () => void;
   onOpenAccount: () => void;
   onOpenNotifications: () => void;
+  accountAreaSwitch?: {
+    label: string;
+    icon: AppIconName;
+    onPress: () => void;
+  };
 }) {
   return (
     <View style={[styles.topBar, compact && styles.topBarCompact]}>
@@ -330,6 +395,15 @@ function TopBar({
       </View>
       <View style={styles.topActions}>
         {!compact && <Pill tone={meta.tone}>{meta.label}</Pill>}
+        {accountAreaSwitch && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={accountAreaSwitch.label}
+            onPress={accountAreaSwitch.onPress}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}>
+            <AppIcon name={accountAreaSwitch.icon} size={20} color={Palette.ink} />
+          </Pressable>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Mitteilungen öffnen"
@@ -485,6 +559,24 @@ const styles = StyleSheet.create({
     borderRadius: Radius.medium,
     padding: Space.md,
     backgroundColor: 'rgba(255,255,255,0.035)',
+  },
+  accountAreaSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.sm,
+    padding: Space.md,
+    borderWidth: 1,
+    borderColor: 'rgba(167,213,190,0.28)',
+    borderRadius: Radius.medium,
+    backgroundColor: 'rgba(167,213,190,0.10)',
+  },
+  accountAreaSwitchIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Palette.sun,
   },
   prototypeIcon: {
     width: 34,

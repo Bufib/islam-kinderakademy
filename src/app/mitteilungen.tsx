@@ -24,15 +24,55 @@ export default function MessagesScreen() {
   const { profile } = useAuth();
   const { data, isLoading, error: loadError, refresh, execute } = useAcademyData();
   const [filter, setFilter] = useState<MessageFilter>('any');
+  const [openedAt] = useState(() => Date.now());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MessageRow | null>(null);
   const [form, setForm] = useState<MessageForm>({ subject: '', body: '', audience: 'all', recipientId: null, groupId: null, published: true });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const accessibleMessages = useMemo(() => {
+    if (isTeam) return data.messages;
+
+    const ownChildIds = new Set(
+      data.children
+        .filter((child) => child.parent_profile_id === profile?.id)
+        .map((child) => child.id)
+    );
+    const ownApprovedGroupIds = new Set(
+      data.groupMembers
+        .filter(
+          (membership) =>
+            ownChildIds.has(membership.child_id) &&
+            membership.membership_status === 'approved'
+        )
+        .map((membership) => membership.group_id)
+    );
+    return data.messages.filter(
+      (message) =>
+        Boolean(message.published_at) &&
+        new Date(message.published_at!).getTime() <= openedAt &&
+        (message.audience === 'all' ||
+          (message.audience === 'profile' &&
+            message.recipient_profile_id === profile?.id) ||
+          (message.audience === 'group' &&
+            Boolean(message.group_id) &&
+            ownApprovedGroupIds.has(message.group_id!)))
+    );
+  }, [
+    data.children,
+    data.groupMembers,
+    data.messages,
+    isTeam,
+    openedAt,
+    profile?.id,
+  ]);
   const visibleMessages = useMemo(
-    () => data.messages.filter((message) => filter === 'any' || message.audience === filter),
-    [data.messages, filter]
+    () =>
+      accessibleMessages.filter(
+        (message) => filter === 'any' || message.audience === filter
+      ),
+    [accessibleMessages, filter]
   );
 
   function openMessage(message?: MessageRow) {
@@ -121,7 +161,7 @@ export default function MessagesScreen() {
           </View>
           <AppText variant="small" color={Palette.muted}>{visibleMessages.length} Mitteilungen</AppText>
         </View>
-        {isLoading && data.messages.length === 0 ? (
+        {isLoading && accessibleMessages.length === 0 ? (
           <DataLoading />
         ) : visibleMessages.length === 0 ? (
           <EmptyState icon="messages" title="Noch keine Mitteilungen" description="Neue Nachrichten und Erinnerungen werden an dieser Stelle gesammelt." />

@@ -1,11 +1,12 @@
 import * as Linking from "expo-linking";
 import { Href, useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 
+import PdfReader from "@/components/pdf-reader";
 import YoutubeVideoPlayer from "@/components/YoutubeVideoPlayer";
 import { AppIcon } from "@/components/ui/app-icon";
-import { DataLoading, ErrorBanner } from "@/components/ui/data-ui";
+import { ChoiceChips, DataLoading, ErrorBanner } from "@/components/ui/data-ui";
 import {
   ActionButton,
   AppText,
@@ -18,7 +19,9 @@ import {
 import { Layout, Palette, Radius, Space } from "@/constants/design";
 import { useAcademy } from "@/context/academy-context";
 import { useAcademyData } from "@/context/academy-data-context";
-import { formatDateTime } from "@/utils/format";
+import { getMediaSignedUrl } from "@/lib/academy-api";
+import { apiErrorMessage, formatDateTime } from "@/utils/format";
+import { findActiveTimeGroupForChild } from "@/utils/time-group-access";
 
 const sessionLabels = {
   scheduled: "Geplant",
@@ -143,12 +146,27 @@ export default function LessonDetailScreen() {
 
   const [youtubePlayerError, setYoutubePlayerError] = useState(false);
 
+  const [selectedPdfId, setSelectedPdfId] = useState<number | null>(null);
+  const [pdfResult, setPdfResult] = useState<{
+    assetId: number;
+    url: string | null;
+    error: string | null;
+  } | null>(null);
+
   /* ==========================================================
    * DATEN
    * ========================================================== */
 
   const child =
     data.children.find((entry) => entry.id === selectedChildId) ?? null;
+
+  const approvedTimeGroup = child
+    ? findActiveTimeGroupForChild(data, child.id, "approved")
+    : null;
+
+  const pendingTimeGroup = child
+    ? findActiveTimeGroupForChild(data, child.id, "pending")
+    : null;
 
   const lesson =
     data.lessons.find(
@@ -158,6 +176,107 @@ export default function LessonDetailScreen() {
   const journey =
     data.journeys.find((entry) => entry.id === lesson?.learning_journey_id) ??
     null;
+
+  const journeyMatchesChild = Boolean(
+    child &&
+      journey &&
+      journey.age_group_id === child.age_group_id &&
+      data.academyYears.some(
+        (year) => year.id === journey.academy_year_id && year.is_active,
+      ),
+  );
+
+  const lessonDocuments = lesson
+    ? data.lessonDocuments
+        .filter((document) => document.lesson_id === lesson.id)
+        .sort((a, b) => a.position - b.position || a.id - b.id)
+    : [];
+
+  const selectedDocument =
+    lessonDocuments.find((document) => document.id === selectedPdfId) ??
+    lessonDocuments[0] ??
+    null;
+
+  const canReadLesson = Boolean(
+    child && approvedTimeGroup && lesson && journeyMatchesChild,
+  );
+
+  const selectedPdfAsset = canReadLesson
+    ? data.mediaAssets.find(
+        (asset) => asset.id === selectedDocument?.media_asset_id,
+      ) ?? null
+    : null;
+
+  const currentPdfResult =
+    pdfResult?.assetId === selectedPdfAsset?.id ? pdfResult : null;
+  const pdfUrl = currentPdfResult?.url ?? null;
+  const pdfError = currentPdfResult?.error ?? null;
+  const pdfLoading = Boolean(selectedPdfAsset && !currentPdfResult);
+
+  useEffect(() => {
+    let active = true;
+
+    if (!selectedPdfAsset) {
+      return () => {
+        active = false;
+      };
+    }
+
+    void getMediaSignedUrl(selectedPdfAsset)
+      .then((url) => {
+        if (!active) {
+          return;
+        }
+
+        if (!url) {
+          throw new Error("Die PDF-Adresse konnte nicht erstellt werden.");
+        }
+
+        setPdfResult({
+          assetId: selectedPdfAsset.id,
+          url,
+          error: null,
+        });
+      })
+      .catch((reason) => {
+        if (active) {
+          setPdfResult({
+            assetId: selectedPdfAsset.id,
+            url: null,
+            error: apiErrorMessage(reason),
+          });
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedPdfAsset]);
+
+  async function openSelectedPdf() {
+    if (!selectedPdfAsset) {
+      return;
+    }
+
+    setPdfResult((current) =>
+      current?.assetId === selectedPdfAsset.id
+        ? { ...current, error: null }
+        : current,
+    );
+
+    try {
+      const url = await getMediaSignedUrl(selectedPdfAsset);
+      if (url) {
+        await Linking.openURL(url);
+      }
+    } catch (reason) {
+      setPdfResult({
+        assetId: selectedPdfAsset.id,
+        url: pdfUrl,
+        error: apiErrorMessage(reason),
+      });
+    }
+  }
 
   /*
    * Priorität:
@@ -230,7 +349,7 @@ export default function LessonDetailScreen() {
     return <DataLoading label="Lektion wird geladen …" />;
   }
 
-  if (!child || !lesson || !Number.isFinite(lessonId)) {
+  if (!child || !Number.isFinite(lessonId)) {
     return (
       <PageScaffold eyebrow="Lektion" title="Lektion nicht verfügbar">
         <Card>
@@ -238,6 +357,42 @@ export default function LessonDetailScreen() {
             icon="lock"
             title="Kein Zugriff auf diese Lektion"
             description="Wähle ein Kinderprofil und öffne eine veröffentlichte Lektion über die Lernreisen."
+            actionLabel="Zu den Lernreisen"
+            onAction={() => router.replace("/lernreisen")}
+          />
+        </Card>
+      </PageScaffold>
+    );
+  }
+
+  if (!approvedTimeGroup) {
+    return (
+      <PageScaffold eyebrow="Lektion" title="Inhalte noch gesperrt">
+        <Card>
+          <EmptyState
+            icon="lock"
+            title="Freigabe der Zeitgruppe ausstehend"
+            description={
+              pendingTimeGroup
+                ? `${pendingTimeGroup.name} · ${pendingTimeGroup.schedule_label} wurde angefragt. Die Lernreise bleibt sichtbar; diese Lektion öffnet sich nach der Admin-Freigabe.`
+                : "Bitte frage im Elternbereich zuerst eine Zeitgruppe an. Die Lektionen öffnen sich nach der Admin-Freigabe."
+            }
+            actionLabel="Lernreisen ansehen"
+            onAction={() => router.replace("/lernreisen")}
+          />
+        </Card>
+      </PageScaffold>
+    );
+  }
+
+  if (!lesson || !journeyMatchesChild) {
+    return (
+      <PageScaffold eyebrow="Lektion" title="Lektion nicht verfügbar">
+        <Card>
+          <EmptyState
+            icon="lock"
+            title="Kein Zugriff auf diese Lektion"
+            description="Öffne eine freigegebene Lektion der ausgewählten Altersgruppe über die Lernreisen."
             actionLabel="Zu den Lernreisen"
             onAction={() => router.replace("/lernreisen")}
           />
@@ -321,6 +476,81 @@ export default function LessonDetailScreen() {
             </AppText>
           )}
         </Card>
+
+        {lessonDocuments.length > 0 && (
+          <>
+            <View style={styles.connector} />
+
+            <Card tone="mint" style={styles.flowCard}>
+              <View style={styles.flowHeader}>
+                <View style={[styles.stepNumber, styles.stepReader]}>
+                  <AppIcon name="lessons" size={20} color={Palette.forest} />
+                </View>
+
+                <View style={styles.flowHeading}>
+                  <AppText variant="label" color={Palette.muted}>
+                    Lesematerial
+                  </AppText>
+
+                  <AppText variant="heading">PDF-Reader</AppText>
+                </View>
+
+                <Pill tone="sky">
+                  {lessonDocuments.length === 1
+                    ? "1 Dokument"
+                    : `${lessonDocuments.length} Dokumente`}
+                </Pill>
+              </View>
+
+              {lessonDocuments.length > 1 && selectedDocument && (
+                <ChoiceChips
+                  label="Dokument auswählen"
+                  value={selectedDocument.id}
+                  onChange={(documentId) => setSelectedPdfId(documentId)}
+                  options={lessonDocuments.map((document) => ({
+                    value: document.id,
+                    label: document.title,
+                  }))}
+                />
+              )}
+
+              {pdfLoading ? (
+                <DataLoading label="PDF wird geladen …" />
+              ) : pdfUrl && selectedDocument ? (
+                <PdfReader
+                  sourceUrl={pdfUrl}
+                  title={selectedDocument.title}
+                  height={compact ? 520 : 720}
+                  onError={() =>
+                    setPdfResult({
+                      assetId: selectedPdfAsset!.id,
+                      url: pdfUrl,
+                      error:
+                        "Der eingebettete Reader konnte nicht geladen werden. Öffne die PDF separat.",
+                    })
+                  }
+                />
+              ) : (
+                <AppText color={Palette.muted}>
+                  Die PDF konnte gerade nicht im Reader geladen werden.
+                </AppText>
+              )}
+
+              {pdfError && <ErrorBanner message={pdfError} />}
+
+              {selectedPdfAsset && (
+                <View style={styles.pdfActions}>
+                  <ActionButton
+                    label="PDF separat öffnen"
+                    icon="external"
+                    variant="secondary"
+                    onPress={() => void openSelectedPdf()}
+                  />
+                </View>
+              )}
+            </Card>
+          </>
+        )}
 
         <View style={styles.connector} />
 
@@ -651,6 +881,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.62)",
   },
 
+  stepReader: {
+    backgroundColor: Palette.skySoft,
+  },
+
   stepQuiz: {
     backgroundColor: Palette.forest,
   },
@@ -686,6 +920,12 @@ const styles = StyleSheet.create({
   },
 
   liveActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Space.sm,
+  },
+
+  pdfActions: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Space.sm,

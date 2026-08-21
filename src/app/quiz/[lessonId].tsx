@@ -11,6 +11,7 @@ import { useAcademyData } from '@/context/academy-data-context';
 import { submitMultipleChoiceQuiz } from '@/lib/academy-api';
 import { QuizSubmissionResult } from '@/types/database';
 import { apiErrorMessage } from '@/utils/format';
+import { findActiveTimeGroupForChild } from '@/utils/time-group-access';
 
 export default function QuizScreen() {
   const router = useRouter();
@@ -23,7 +24,22 @@ export default function QuizScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const child = data.children.find((entry) => entry.id === selectedChildId) ?? null;
+  const approvedTimeGroup = child
+    ? findActiveTimeGroupForChild(data, child.id, 'approved')
+    : null;
+  const pendingTimeGroup = child
+    ? findActiveTimeGroupForChild(data, child.id, 'pending')
+    : null;
   const lesson = data.lessons.find((entry) => entry.id === lessonId && entry.status === 'published') ?? null;
+  const journey = data.journeys.find((entry) => entry.id === lesson?.learning_journey_id) ?? null;
+  const journeyMatchesChild = Boolean(
+    child &&
+      journey &&
+      journey.age_group_id === child.age_group_id &&
+      data.academyYears.some(
+        (year) => year.id === journey.academy_year_id && year.is_active
+      )
+  );
   const quiz = data.quizzes.find((entry) => entry.lesson_id === lessonId && entry.is_published) ?? null;
   const questions = useMemo(
     () =>
@@ -41,7 +57,7 @@ export default function QuizScreen() {
 
   if (isLoading && (!child || !lesson)) return <DataLoading label="Quiz wird geladen …" />;
 
-  if (!child || !lesson || !Number.isFinite(lessonId)) {
+  if (!child || !Number.isFinite(lessonId)) {
     return (
       <PageScaffold eyebrow="Quiz" title="Quiz nicht verfügbar">
         <Card>
@@ -49,6 +65,42 @@ export default function QuizScreen() {
             icon="lock"
             title="Kein Zugriff auf dieses Quiz"
             description="Öffne die veröffentlichte Lektion über ein Kinderprofil."
+            actionLabel="Zu den Lernreisen"
+            onAction={() => router.replace('/lernreisen')}
+          />
+        </Card>
+      </PageScaffold>
+    );
+  }
+
+  if (!approvedTimeGroup) {
+    return (
+      <PageScaffold eyebrow="Quiz" title="Quiz noch gesperrt">
+        <Card>
+          <EmptyState
+            icon="lock"
+            title="Freigabe der Zeitgruppe ausstehend"
+            description={
+              pendingTimeGroup
+                ? `${pendingTimeGroup.name} · ${pendingTimeGroup.schedule_label} wurde angefragt. Das Quiz öffnet sich nach der Admin-Freigabe.`
+                : 'Bitte frage im Elternbereich zuerst eine Zeitgruppe an.'
+            }
+            actionLabel="Zu den Lernreisen"
+            onAction={() => router.replace('/lernreisen')}
+          />
+        </Card>
+      </PageScaffold>
+    );
+  }
+
+  if (!lesson || !journeyMatchesChild) {
+    return (
+      <PageScaffold eyebrow="Quiz" title="Quiz nicht verfügbar">
+        <Card>
+          <EmptyState
+            icon="lock"
+            title="Kein Zugriff auf dieses Quiz"
+            description="Öffne das Quiz über eine freigegebene Lektion der ausgewählten Altersgruppe."
             actionLabel="Zu den Lernreisen"
             onAction={() => router.replace('/lernreisen')}
           />

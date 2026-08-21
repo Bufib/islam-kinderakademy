@@ -486,6 +486,31 @@ export function AdminDashboard() {
         />
       </View>
 
+      {pendingTimeGroupRequests > 0 && (
+        <Card tone="sun" style={styles.timeGroupRequestCard}>
+          <View style={styles.timeGroupRequestIcon}>
+            <AppIcon name="clock" size={23} color={Palette.forest} />
+          </View>
+          <View style={styles.timeGroupRequestCopy}>
+            <AppText variant="heading">
+              {pendingTimeGroupRequests}{" "}
+              {pendingTimeGroupRequests === 1
+                ? "Zeitgruppenanfrage wartet"
+                : "Zeitgruppenanfragen warten"}
+            </AppText>
+            <AppText color={Palette.inkSoft}>
+              Öffne die Zeitgruppenverwaltung, um Kinder freizuschalten oder
+              Anfragen abzulehnen.
+            </AppText>
+          </View>
+          <ActionButton
+            label="Anfragen prüfen"
+            icon="arrow"
+            onPress={() => router.push("/gruppen")}
+          />
+        </Card>
+      )}
+
       {/* ======================================================
        * PAYMENTS
        * ====================================================== */}
@@ -1017,6 +1042,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Space.lg,
+  },
+
+  timeGroupRequestCard: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: Space.lg,
+  },
+
+  timeGroupRequestIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.medium,
+    backgroundColor: Palette.sunSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  timeGroupRequestCopy: {
+    flex: 1,
+    flexBasis: 280,
+    minWidth: 0,
+    gap: Space.xs,
   },
 
   quickGrid: {

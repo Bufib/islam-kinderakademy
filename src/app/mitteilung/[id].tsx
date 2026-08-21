@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
@@ -7,15 +8,46 @@ import { ActionButton, AppText, Card, EmptyState, PageScaffold, Pill } from '@/c
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
+import { useAuth } from '@/context/auth-context';
 import { formatDateTime } from '@/utils/format';
 
 export default function MessageDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
   const messageId = Number(params.id);
+  const [openedAt] = useState(() => Date.now());
   const { activeRole } = useAcademy();
+  const { profile } = useAuth();
   const { data, isLoading, error, refresh } = useAcademyData();
-  const message = data.messages.find((entry) => entry.id === messageId);
+  const candidateMessage = data.messages.find((entry) => entry.id === messageId);
+  const ownChildIds = new Set(
+    data.children
+      .filter((child) => child.parent_profile_id === profile?.id)
+      .map((child) => child.id)
+  );
+  const ownApprovedGroupIds = new Set(
+    data.groupMembers
+      .filter(
+        (membership) =>
+          ownChildIds.has(membership.child_id) &&
+          membership.membership_status === 'approved'
+      )
+      .map((membership) => membership.group_id)
+  );
+  const familyCanReadCandidate = Boolean(
+    candidateMessage?.published_at &&
+      new Date(candidateMessage.published_at).getTime() <= openedAt &&
+      (candidateMessage.audience === 'all' ||
+        (candidateMessage.audience === 'profile' &&
+          candidateMessage.recipient_profile_id === profile?.id) ||
+        (candidateMessage.audience === 'group' &&
+          Boolean(candidateMessage.group_id) &&
+          ownApprovedGroupIds.has(candidateMessage.group_id!)))
+  );
+  const message =
+    activeRole === 'team' || familyCanReadCandidate
+      ? candidateMessage
+      : undefined;
 
   if (isLoading && !message) return <DataLoading label="Mitteilung wird geladen …" />;
 

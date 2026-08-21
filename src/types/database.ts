@@ -253,6 +253,15 @@ export type MediaAssetRow = {
   created_at: string;
 };
 
+export type LessonDocumentRow = {
+  id: number;
+  lesson_id: number;
+  media_asset_id: number;
+  title: string;
+  position: number;
+  created_at: string;
+};
+
 export type MessageRow = {
   id: number;
   sender_profile_id: number | null;
@@ -323,6 +332,7 @@ export type AcademyData = {
   badges: BadgeRow[];
   childBadges: ChildBadgeRow[];
   mediaAssets: MediaAssetRow[];
+  lessonDocuments: LessonDocumentRow[];
   messages: MessageRow[];
 };
 
@@ -350,6 +360,7 @@ export const emptyDatabaseData: AcademyData = {
   badges: [],
   childBadges: [],
   mediaAssets: [],
+  lessonDocuments: [],
   messages: [],
 };
 
@@ -377,6 +388,7 @@ export type AcademyTableRowMap = {
   badges: BadgeRow;
   child_badges: ChildBadgeRow;
   media_assets: MediaAssetRow;
+  lesson_documents: LessonDocumentRow;
   messages: MessageRow;
   payment_agreements: PaymentAgreementRow;
   monthly_payments: MonthlyPaymentRow;

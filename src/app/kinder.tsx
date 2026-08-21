@@ -79,6 +79,13 @@ export default function ChildrenScreen() {
   const activeAcademyYearIds = data.academyYears
     .filter((year) => year.is_active)
     .map((year) => year.id);
+  const parentProfileId =
+    profile?.id ??
+    data.profiles.find((entry) => entry.auth_user_id === user?.id)?.id ??
+    null;
+  const ownChildren = data.children.filter(
+    (child) => child.parent_profile_id === parentProfileId,
+  );
 
   function timeGroupsForAgeGroup(ageGroupId: number | null) {
     if (!ageGroupId) return [];
@@ -171,11 +178,6 @@ export default function ChildrenScreen() {
     setFormError(null);
 
     try {
-      const parentProfileId =
-        profile?.id ??
-        data.profiles.find((entry) => entry.auth_user_id === user?.id)?.id ??
-        null;
-
       if (!parentProfileId) {
         await ensureCurrentProfileId();
         await refreshProfile();
@@ -191,7 +193,7 @@ export default function ChildrenScreen() {
           gender: form.gender!,
           avatarKey:
             editing?.avatar_key ??
-            `avatar-${(data.children.length % 6) + 1}`,
+            `avatar-${(ownChildren.length % 6) + 1}`,
         }),
       );
 
@@ -269,14 +271,14 @@ export default function ChildrenScreen() {
         <Card style={[styles.profilesCard, stacked && styles.fullWidth]}>
           <SectionHeader
             title="Kinderprofile"
-            description={`${data.children.length} ${
-              data.children.length === 1 ? "Profil" : "Profile"
+            description={`${ownChildren.length} ${
+              ownChildren.length === 1 ? "Profil" : "Profile"
             }`}
           />
 
-          {isLoading && data.children.length === 0 ? (
+          {isLoading && ownChildren.length === 0 ? (
             <DataLoading />
-          ) : data.children.length === 0 ? (
+          ) : ownChildren.length === 0 ? (
             <EmptyState
               icon="children"
               title="Noch kein Profil angelegt"
@@ -286,7 +288,7 @@ export default function ChildrenScreen() {
             />
           ) : (
             <View style={styles.profileList}>
-              {data.children.map((child) => {
+              {ownChildren.map((child) => {
                 const ageGroup = data.ageGroups.find(
                   (entry) => entry.id === child.age_group_id,
                 );
@@ -420,7 +422,7 @@ export default function ChildrenScreen() {
             {[
               [
                 "Altersgruppe wählen",
-                "Die passenden Lerninhalte stehen dem Kind sofort zur Verfügung",
+                "Die passenden Lernreisen sind für das Kind sofort sichtbar",
               ],
               [
                 "Zeitgruppe anfragen",
@@ -428,7 +430,7 @@ export default function ChildrenScreen() {
               ],
               [
                 "Admin-Freigabe",
-                "Erst nach der Freigabe gehört das Kind zur Zeitgruppe und sieht deren Termine",
+                "Erst danach öffnen sich Lektionen, Quizze und Termine der Zeitgruppe",
               ],
             ].map(([title, description], index) => (
               <View key={title} style={styles.step}>
@@ -519,9 +521,9 @@ export default function ChildrenScreen() {
               color={Palette.inkSoft}
               style={styles.ageGroupDateTime}
             >
-              Die Inhalte richten sich nach dieser Altersgruppe und sind sofort
-              verfügbar. Alle Zeitgruppen dieser Altersgruppe verwenden dieselben
-              Inhalte.
+              Die Lernreisen richten sich nach dieser Altersgruppe und sind sofort
+              sichtbar. Ihre Lektionen öffnen sich nach der Freigabe. Alle
+              Zeitgruppen dieser Altersgruppe verwenden dieselben Inhalte.
             </AppText>
           </View>
         )}
@@ -563,8 +565,9 @@ export default function ChildrenScreen() {
             </View>
 
             <AppText variant="small" color={Palette.inkSoft}>
-              Die Auswahl wird zunächst angefragt. Termine und Zeitgruppenbereiche
-              werden erst nach der Freigabe durch einen Admin zugeordnet.
+              Die Auswahl wird zunächst angefragt. Lektionen, Quizze, Termine und
+              Zeitgruppenbereiche öffnen sich erst nach der Freigabe durch einen
+              Admin.
             </AppText>
           </View>
         )}

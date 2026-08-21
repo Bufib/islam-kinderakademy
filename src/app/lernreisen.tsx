@@ -3,10 +3,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '@/components/ui/app-icon';
 import { DataLoading, ErrorBanner } from '@/components/ui/data-ui';
-import { AppText, Card, EmptyState, PageScaffold, Pill, ProgressBar, SectionHeader } from '@/components/ui/primitives';
+import { ActionButton, AppText, Card, EmptyState, PageScaffold, Pill, ProgressBar, SectionHeader } from '@/components/ui/primitives';
 import { Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
+import { findActiveTimeGroupForChild } from '@/utils/time-group-access';
 
 export default function LearningJourneysScreen() {
   const router = useRouter();
@@ -26,13 +27,18 @@ export default function LearningJourneysScreen() {
 
   const activeYears = data.academyYears.filter((year) => year.is_active);
   const yearIds = activeYears.map((year) => year.id);
+  const approvedTimeGroup = findActiveTimeGroupForChild(data, child.id, 'approved');
+  const pendingTimeGroup = findActiveTimeGroupForChild(data, child.id, 'pending');
+  const contentUnlocked = Boolean(approvedTimeGroup);
   const journeys = data.journeys
     .filter((journey) => journey.is_published && journey.age_group_id === child.age_group_id && yearIds.includes(journey.academy_year_id))
     .sort((a, b) => a.position - b.position);
   const journeyIds = journeys.map((journey) => journey.id);
-  const allLessons = data.lessons.filter(
-    (lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published'
-  );
+  const allLessons = contentUnlocked
+    ? data.lessons.filter(
+        (lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published'
+      )
+    : [];
   const progressRows = data.lessonProgress.filter((row) => row.child_id === child.id);
   const completed = allLessons.filter(
     (lesson) => progressRows.find((row) => row.lesson_id === lesson.id)?.status === 'completed'
@@ -43,8 +49,30 @@ export default function LearningJourneysScreen() {
     <PageScaffold
       eyebrow={`Lernweg von ${child.display_name}`}
       title="Lernreisen"
-      description="Alle veröffentlichten Lernbereiche und Lektionen für deine Altersgruppe.">
+      description="Die Lernreisen deiner Altersgruppe sind sichtbar. Ihre Inhalte öffnen sich nach der Zeitgruppenfreigabe.">
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
+      {!contentUnlocked && (
+        <Card tone="sun" style={styles.accessCard}>
+          <View style={styles.accessIcon}>
+            <AppIcon name="lock" size={23} color={Palette.forest} />
+          </View>
+          <View style={styles.accessCopy}>
+            <AppText variant="heading">Inhalte noch gesperrt</AppText>
+            <AppText color={Palette.inkSoft}>
+              {pendingTimeGroup
+                ? `${pendingTimeGroup.name} · ${pendingTimeGroup.schedule_label} wurde angefragt. Ein Admin muss die Zeitgruppe noch freischalten.`
+                : 'Für dieses Kind muss zuerst eine Zeitgruppe angefragt und durch einen Admin freigeschaltet werden.'}
+            </AppText>
+          </View>
+          <ActionButton
+            label="Status aktualisieren"
+            icon="refresh"
+            compact
+            variant="secondary"
+            onPress={() => void refresh()}
+          />
+        </Card>
+      )}
       <Card tone="dark" style={styles.overviewCard}>
         <View style={styles.overviewTop}>
           <View style={styles.overviewCopy}>
@@ -57,8 +85,12 @@ export default function LearningJourneysScreen() {
         </View>
         <ProgressBar value={overall} color={Palette.sun} trackColor="rgba(255,255,255,0.13)" />
         <View style={styles.overviewMeta}>
-          <AppText variant="small" color="#CDE0D7">{completed} von {allLessons.length} Lektionen abgeschlossen</AppText>
-          <AppText variant="small" color="#CDE0D7">{overall} %</AppText>
+          <AppText variant="small" color="#CDE0D7">
+            {contentUnlocked
+              ? `${completed} von ${allLessons.length} Lektionen abgeschlossen`
+              : 'Lektionsinhalte warten auf die Admin-Freigabe'}
+          </AppText>
+          <AppText variant="small" color="#CDE0D7">{contentUnlocked ? `${overall} %` : 'Gesperrt'}</AppText>
         </View>
       </Card>
 
@@ -82,13 +114,22 @@ export default function LearningJourneysScreen() {
                   <View style={styles.journeyCopy}>
                     <View style={styles.titleLine}>
                       <AppText variant="heading">{journey.title}</AppText>
-                      <Pill tone={percent === 100 ? 'mint' : 'neutral'}>{journeyCompleted}/{lessons.length} geschafft</Pill>
+                      <Pill tone={!contentUnlocked ? 'sun' : percent === 100 ? 'mint' : 'neutral'}>
+                        {contentUnlocked ? `${journeyCompleted}/${lessons.length} geschafft` : 'Inhalte gesperrt'}
+                      </Pill>
                     </View>
                     {journey.description && <AppText color={Palette.inkSoft}>{journey.description}</AppText>}
-                    <ProgressBar value={percent} />
+                    {contentUnlocked && <ProgressBar value={percent} />}
                   </View>
                 </View>
-                {lessons.length === 0 ? (
+                {!contentUnlocked ? (
+                  <View style={styles.lockedLessons}>
+                    <AppIcon name="lock" size={19} color={Palette.forest} />
+                    <AppText color={Palette.inkSoft}>
+                      Die Lektionen dieser Lernreise werden nach der Freigabe sichtbar.
+                    </AppText>
+                  </View>
+                ) : lessons.length === 0 ? (
                   <AppText color={Palette.muted}>Noch keine Lektion veröffentlicht.</AppText>
                 ) : (
                   <View style={styles.lessonList}>
@@ -125,6 +166,9 @@ export default function LearningJourneysScreen() {
 }
 
 const styles = StyleSheet.create({
+  accessCard: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Space.lg },
+  accessIcon: { width: 48, height: 48, borderRadius: Radius.medium, backgroundColor: Palette.sunSoft, alignItems: 'center', justifyContent: 'center' },
+  accessCopy: { flex: 1, flexBasis: 260, minWidth: 0, gap: Space.xs },
   overviewCard: { minHeight: 220, justifyContent: 'space-between' },
   overviewTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Space.lg },
   overviewCopy: { flex: 1, alignItems: 'flex-start', gap: Space.lg },
@@ -141,5 +185,6 @@ const styles = StyleSheet.create({
   lessonStatus: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: Palette.mint },
   lessonStatusDone: { backgroundColor: Palette.forest },
   lessonCopy: { flex: 1, minWidth: 0, gap: 2 },
+  lockedLessons: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: Space.md, borderWidth: 1, borderColor: Palette.line, borderRadius: Radius.medium, padding: Space.md, backgroundColor: Palette.sunSoft },
   pressed: { opacity: 0.75 },
 });

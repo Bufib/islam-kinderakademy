@@ -19,7 +19,9 @@ import {
 import { Layout, Palette, Radius, Space } from '@/constants/design';
 import { useAcademy } from '@/context/academy-context';
 import { useAcademyData } from '@/context/academy-data-context';
+import { useAuth } from '@/context/auth-context';
 import { formatDateTime } from '@/utils/format';
+import { findActiveTimeGroupForChild } from '@/utils/time-group-access';
 
 export function ParentDashboard() {
   const router = useRouter();
@@ -27,14 +29,67 @@ export function ParentDashboard() {
   const [openedAt] = useState(() => Date.now());
   const stacked = width < Layout.contentStackBreakpoint;
   const { enterChildArea } = useAcademy();
+  const { profile } = useAuth();
   const { data, isLoading, error, refresh } = useAcademyData();
+  const ownChildren = data.children.filter(
+    (child) => child.parent_profile_id === profile?.id
+  );
+  const ownChildIds = new Set(ownChildren.map((child) => child.id));
+  const approvedTimeGroups = ownChildren
+    .map((child) => findActiveTimeGroupForChild(data, child.id, 'approved'))
+    .filter((group): group is NonNullable<typeof group> => Boolean(group));
+  const approvedGroupIds = new Set(approvedTimeGroups.map((group) => group.id));
+  const approvedAgeYearKeys = new Set(
+    approvedTimeGroups.map(
+      (group) => `${group.age_group_id}:${group.academy_year_id}`
+    )
+  );
+  const accessibleJourneyIds = new Set(
+    data.journeys
+      .filter(
+        (journey) =>
+          journey.is_published &&
+          approvedAgeYearKeys.has(
+            `${journey.age_group_id}:${journey.academy_year_id}`
+          )
+      )
+      .map((journey) => journey.id)
+  );
+  const accessibleLessonIds = new Set(
+    data.lessons
+      .filter(
+        (lesson) =>
+          lesson.status === 'published' &&
+          accessibleJourneyIds.has(lesson.learning_journey_id)
+      )
+      .map((lesson) => lesson.id)
+  );
   const upcomingSessions = data.liveSessions
-    .filter((session) => new Date(session.ends_at).getTime() >= openedAt && session.status !== 'cancelled')
+    .filter(
+      (session) =>
+        new Date(session.ends_at).getTime() >= openedAt &&
+        session.status !== 'cancelled' &&
+        accessibleLessonIds.has(session.lesson_id) &&
+        (session.group_id === null || approvedGroupIds.has(session.group_id))
+    )
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const nextSession = upcomingSessions[0];
-  const openQuizzes = data.children.reduce((count, child) => {
+  const openQuizzes = ownChildren.reduce((count, child) => {
+    const approvedTimeGroup = findActiveTimeGroupForChild(
+      data,
+      child.id,
+      'approved'
+    );
+
+    if (!approvedTimeGroup) return count;
+
     const journeyIds = data.journeys
-      .filter((journey) => journey.age_group_id === child.age_group_id && journey.is_published)
+      .filter(
+        (journey) =>
+          journey.age_group_id === child.age_group_id &&
+          journey.academy_year_id === approvedTimeGroup.academy_year_id &&
+          journey.is_published
+      )
       .map((journey) => journey.id);
     const lessonIds = data.lessons
       .filter((lesson) => journeyIds.includes(lesson.learning_journey_id) && lesson.status === 'published')
@@ -48,7 +103,9 @@ export function ParentDashboard() {
       )
     ).length;
   }, 0);
-  const recentAttempts = data.quizAttempts.slice(0, 5);
+  const recentAttempts = data.quizAttempts
+    .filter((attempt) => ownChildIds.has(attempt.child_id))
+    .slice(0, 5);
 
   function openChild(childId: number) {
     enterChildArea(childId);
@@ -63,7 +120,7 @@ export function ParentDashboard() {
       action={<ActionButton label="Kind hinzufügen" icon="add" onPress={() => router.push('/kinder')} />}>
       {error && <ErrorBanner message={error} onRetry={() => void refresh()} />}
       <View style={styles.statsGrid}>
-        <StatCard icon="children" value={String(data.children.length)} label="Kinderprofile" tone="mint" />
+        <StatCard icon="children" value={String(ownChildren.length)} label="Kinderprofile" tone="mint" />
         <StatCard icon="calendar" value={String(upcomingSessions.length)} label="Anstehende Termine" tone="sky" />
         <StatCard icon="check" value={String(openQuizzes)} label="Offene Quizze" tone="sun" />
       </View>
@@ -71,13 +128,13 @@ export function ParentDashboard() {
       <View style={[styles.mainGrid, stacked && styles.column]}>
         <Card style={[styles.childrenCard, stacked && styles.fullWidth]}>
           <SectionHeader title="Meine Kinder" description="Profile und Lernstände" action={<ActionButton label="Alle ansehen" variant="quiet" compact onPress={() => router.push('/kinder')} />} />
-          {isLoading && data.children.length === 0 ? (
+          {isLoading && ownChildren.length === 0 ? (
             <DataLoading />
-          ) : data.children.length === 0 ? (
+          ) : ownChildren.length === 0 ? (
             <EmptyState compact icon="children" title="Noch kein Kinderprofil" description="Lege ein Profil an, um Lernweg und Fortschritt zu begleiten." actionLabel="Profil anlegen" onAction={() => router.push('/kinder')} />
           ) : (
             <View style={styles.childList}>
-              {data.children.slice(0, 4).map((child) => {
+              {ownChildren.slice(0, 4).map((child) => {
                 const rows = data.lessonProgress.filter((progress) => progress.child_id === child.id);
                 const percent = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.progress_percent, 0) / rows.length) : 0;
                 const membership = data.groupMembers
@@ -144,7 +201,7 @@ export function ParentDashboard() {
         ) : (
           <View style={styles.challengeList}>
             {recentAttempts.map((attempt) => {
-              const child = data.children.find((entry) => entry.id === attempt.child_id);
+              const child = ownChildren.find((entry) => entry.id === attempt.child_id);
               const quiz = data.quizzes.find((entry) => entry.id === attempt.quiz_id);
               return (
                 <View key={attempt.id} style={styles.challengeRow}>
